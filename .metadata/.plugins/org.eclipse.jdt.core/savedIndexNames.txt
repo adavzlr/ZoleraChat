@@ -1,0 +1,2 @@
+INDEX VERSION 1.127+C:\Users\ortiz\Home\Masters\SD (S2015)\ZoleraChat\.metadata\.plugins\org.eclipse.jdt.core
+3511287486.index
