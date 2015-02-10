@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<launchConfiguration type="net.genady.rmi.rmiServer">
+<stringAttribute key="net.genady.rmi.afterCommand" value=""/>
+<stringAttribute key="net.genady.rmi.beforeCommand" value=""/>
+<booleanAttribute key="net.genady.rmi.beforeWaitCompletion" value="false"/>
+<booleanAttribute key="net.genady.rmi.launchInspectLater" value="false"/>
+<mapAttribute key="net.genady.rmi.launchProp">
+<mapEntry key="java.security.policy" value="${workspace_loc:/Client/config/security.policy}"/>
+</mapAttribute>
+<listAttribute key="net.genady.rmi.launchProp.codebase">
+<listEntry value="file:${workspace_loc:/Client/bin}"/>
+<listEntry value="file:${workspace_loc:/Infrastructure/bin}"/>
+</listAttribute>
+<intAttribute key="net.genady.rmi.launchRegistryAction" value="0"/>
+<booleanAttribute key="net.genady.rmi.logRMIEvents" value="false"/>
+<booleanAttribute key="net.genady.rmi.logRMIEvents.noSerialization" value="false"/>
+<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
+<listEntry value="/Client/src/zolera/chat/client/ChatClient.java"/>
+</listAttribute>
+<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
+<listEntry value="1"/>
+</listAttribute>
+<stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="zolera.chat.client.ChatClient"/>
+<stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="Aldo"/>
+<stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="Client"/>
+</launchConfiguration>
