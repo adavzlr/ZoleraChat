@@ -8,98 +8,196 @@ import zolera.chat.infrastructure.*;
 
 public class ChatRoom
 implements IChatRoom, Runnable {
+	private ServerConfiguration config;
 	private String roomname;
+	
 	private Map<IChatClient, ChatClientHandle> clients;
 	private int maxCapacity;	
+	
 	private Queue<ChatMessage> pending;
-	private Thread consumerThread;
+	private ChatLog            chatlog;
+	private Thread             consumerThread;
 	
 	private IChatRoom roomRef;
 	
 	public ChatRoom(String name, int capacity)
 	throws RemoteException {
-		roomname    = name;
+		config   = ServerConfiguration.getGlobal();
+		roomname = name;
+		
 		maxCapacity = capacity;
 		clients     = new HashMap<IChatClient, ChatClientHandle>(maxCapacity);
 		
-		pending = new ArrayDeque<ChatMessage>(maxCapacity * ServerConfiguration.getGlobal().getInitialMessagesPerClient());
+		pending = new ArrayDeque<ChatMessage>(maxCapacity * config.getInitialMessagesPerClient());
+		chatlog = new ChatLog(config.getInitialChatLogCapacity());
 		consumerThread = new Thread(this);
 		
 		roomRef = (IChatRoom) UnicastRemoteObject.exportObject(this, 0);
 	}
 	
-	public boolean isClient(IChatClient clientRef) {
-		if (clientRef == null)
-			return false;
-		else
-			return clients.containsKey(clientRef);
-	}
-	
-	public boolean isFull() {
-		return clients.size() >= maxCapacity;
-	}
-	
-	public IChatRoom getRoomRef() {
+	public synchronized IChatRoom getRoomRef() {
 		return roomRef;
 	}
 	
-	public boolean addClient(String clientName, IChatClient clientRef) {
-		if (isFull() || isClient(clientRef))
-			return false;
-		
-		ChatClientHandle clientHandle = new ChatClientHandle(clientName);
-		clients.put(clientRef, clientHandle);
-		return true;
-	}
 	
-	private void addMessage(ChatMessage msg) {
-		if (msg == null)
-			return;
-		
-		synchronized(pending) {
-			pending.add(msg);
-		}
-	}
-	
-	private ChatMessage getMessage() {
-		synchronized(pending) {
-			if (pending.isEmpty())
-				return null;
-			else
-				return pending.remove();
-		}
-	}
-	
-	private ChatClientHandle getClientHandle(IChatClient ref) {
-		return clients.get(ref);
-	}
 	
 	public void startConsumerThread() {
 		consumerThread.start();
 	}
 	
 	public void stopConsumerThread() {
-		while (consumerThread.isAlive()) {
+		if (!consumerThread.isAlive())
+			return;
+		
+		// interrupt thread and wait for it to end
+		consumerThread.interrupt();
+		while(consumerThread.isAlive()) {
 			try {
 				consumerThread.join();
 			}
 			catch (InterruptedException ie) {
-				System.out.println("Error: (" + roomname + ") " + ie.getMessage());
-			}
-		}
-	}
-	
-	private void broadcastMessageToClients(ChatMessage msg) {
-		for(ChatClientHandle handle : clients.values()) {
-			if (handle.isReady()) {
-				IChatClient clientRef = handle.getClientRef();
-				clientRef.receive(msg);
+				System.err.println("Error: (" + roomname + ") ");
+				ie.printStackTrace();
 			}
 		}
 	}
 	
 	@Override
-	public int submit(IChatClient clientRef, ChatMessage msg)
+	public void run() {
+		// This is the consumerThread entry point
+		consumerThreadLoop();
+	}
+	
+	private void consumerThreadLoop() {
+		while (true) {
+			try {
+				if (consumerThread.isInterrupted())
+					throw new InterruptedException("Interruption detected in service loop");
+				
+				synchronized(this) {
+					while (!pending.isEmpty()) {
+						ChatMessage msg = getMessage();
+						broadcastMessageToClients(msg);
+					}
+				}
+			
+				consumerThreadSleep();
+			}
+			catch (InterruptedException ie) {
+				break;
+			}
+		}
+	}
+	
+	private void consumerThreadSleep()
+	throws InterruptedException {
+		long ellapsedTime = 0;
+		long startTime    = System.currentTimeMillis();
+		long sleepTime    = config.getSleepTimeRoomConsumerThreadMillis();
+		
+		do {
+			Thread.sleep(sleepTime - ellapsedTime);
+			ellapsedTime = System.currentTimeMillis() - startTime;
+		} while (ellapsedTime < sleepTime);
+	}
+	
+	private synchronized void broadcastMessageToClients(ChatMessage msg) {
+		chatlog.addMessage(msg);
+		
+		Iterator<ChatClientHandle> iterator = clients.values().iterator();
+		while(iterator.hasNext()) {
+			ChatClientHandle handle    = iterator.next();
+			
+			try {
+				if (handle.isReady()) {
+					sendMessageToClient(handle, msg);
+				}
+				else {
+					long timeSinceCreation = System.currentTimeMillis() - handle.getCreationTime();
+					
+					if (timeSinceCreation > config.getWaitReadyTimeoutMillis())
+						throw getRemovingUserException(handle, "ready timeout", null);
+				}
+			}
+			catch (DeadClientException dce) {
+				// Remove client when we determine it is unresponsive (timeout or RMI exceptions)
+				
+				if (DebuggingTools.DEBUG_MODE)
+					dce.printStackTrace();
+				else
+					System.out.println("\nError: " + dce.getMessage());
+				
+				addMessage(new ChatMessage(config.getSystemMessagesUsername(),"User " + handle.getUsername() + " left the room"));
+				iterator.remove();
+			}
+		}
+	}
+	
+	private synchronized void sendMessageToClient(ChatClientHandle handle, ChatMessage msg)
+	throws DeadClientException {
+		try {
+			handle.getClientRef().receive(msg);
+		}
+		catch (RemoteException re) {
+			throw getRemovingUserException(handle, "RMI layer", re);
+		}
+	}
+	
+	private synchronized DeadClientException getRemovingUserException(ChatClientHandle handle, String reason, Throwable cause) {
+		String message = "User '" + handle.getUsername() + "' needs to be removed "
+	                     + "(because of " + reason + ") on room '" + roomname + "'";
+		
+		if (cause == null)
+			return new DeadClientException(message);
+		else
+			return new DeadClientException(message, cause);
+	}
+	
+	
+	
+	public synchronized boolean isClient(IChatClient clientRef) {
+		if (clientRef == null)
+			return false;
+		
+		return clients.containsKey(clientRef);
+	}
+	
+	public synchronized boolean isFull() {
+		return clients.size() >= maxCapacity;
+	}
+	
+	public synchronized boolean addClient(String clientName, IChatClient clientRef) {
+		if (isFull() || isClient(clientRef))
+			return false;
+		
+		ChatClientHandle clientHandle = new ChatClientHandle(clientName, clientRef);
+		clients.put(clientRef, clientHandle);
+		
+		return true;
+	}
+	
+	public synchronized ChatClientHandle getClientHandle(IChatClient ref) {
+		return clients.get(ref);
+	}
+	
+	private synchronized void addMessage(ChatMessage msg) {
+		if (msg == null)
+			return;
+		
+		pending.add(msg);
+	}
+	
+	private synchronized ChatMessage getMessage() {
+		if (pending.isEmpty())
+			return null;
+		else
+			return pending.remove();
+	}
+	
+	
+	
+	@Override
+	public synchronized int submit(IChatClient clientRef, ChatMessage msg)
 	throws RemoteException {
 		if (!submit_verifyValidity(clientRef, msg))
 			return IChatRoom.VALIDITY_CHECK_FAILED;
@@ -109,7 +207,7 @@ implements IChatRoom, Runnable {
 		}
 	}
 	
-	private boolean submit_verifyValidity(IChatClient clientRef, ChatMessage msg) {
+	private synchronized boolean submit_verifyValidity(IChatClient clientRef, ChatMessage msg) {
 		if (clientRef == null || msg == null)
 			return false;
 		if (!isClient(clientRef))
@@ -127,17 +225,25 @@ implements IChatRoom, Runnable {
 	}
 
 	@Override
-	public int ready(IChatClient clientRef)
+	public synchronized int ready(IChatClient clientRef)
 	throws RemoteException {
 		if (!ready_verifyValidity(clientRef))
 			return IChatRoom.VALIDITY_CHECK_FAILED;
 		
 		ChatClientHandle handle = getClientHandle(clientRef);
 		handle.setReady(true);
+		
+		// send all the messages on chatlog to the new client
+		ChatMessage[] messages = chatlog.getAllMessages();
+		clientRef.receiveBatch(messages);
+		
+		// inform users of joining user
+		addMessage(new ChatMessage(config.getSystemMessagesUsername(), "User '" + handle.getUsername() + "' joined the room"));
+		
 		return IChatRoom.READY_ACKNOWLEDGED;
 	}
 	
-	private boolean ready_verifyValidity(IChatClient clientRef) {
+	private synchronized boolean ready_verifyValidity(IChatClient clientRef) {
 		if (clientRef == null || !isClient(clientRef))
 			return false;
 		
@@ -146,11 +252,5 @@ implements IChatRoom, Runnable {
 			return false;
 		
 		return true;
-	}
-
-	@Override
-	public void run() {
-		// This is the consumerThread entry point
-		
 	}
 }

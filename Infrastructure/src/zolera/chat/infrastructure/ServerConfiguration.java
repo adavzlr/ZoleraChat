@@ -26,6 +26,9 @@ public final class ServerConfiguration {
 	private final int    maxRoomCapacity;
 	private final int    initialChatLogCapacity;
 	private final int    initialMessagesPerClient;
+	private final long   sleepTimeRoomConsumerThreadMillis;
+	private final long   waitReadyTimeoutMillis;
+	private final String systemMessagesUsername;
 	
 	private ServerConfiguration() {
 		this(0);
@@ -35,16 +38,19 @@ public final class ServerConfiguration {
 		switch (configId) {
 		case 0:
 		default:
-			serverRegisteredName     = "ZoleraChatServer";
-			maxUsernameLength        = 10;
-			usernamePattern          = "^\\w{1," + maxUsernameLength + "}$";
-			maxRoomnameLength        = 15;
-			roomnamePattern          = "^[\\w ]{1," + maxRoomnameLength + "}$";
-			clientTerminationString  = "exit zolerachat";
-			defaultRoomname          = "Default";
-			maxRoomCapacity          = 10;
-			initialChatLogCapacity   = 100;
-			initialMessagesPerClient = 5;
+			serverRegisteredName              = "ZoleraChatServer";
+			maxUsernameLength                 = 15;
+			usernamePattern                   = "^\\w{1," + maxUsernameLength + "}$";
+			maxRoomnameLength                 = 30;
+			roomnamePattern                   = "^[\\w ]{1," + maxRoomnameLength + "}$";
+			clientTerminationString           = "exit zolerachat";
+			defaultRoomname                   = "Default";
+			maxRoomCapacity                   = 10;
+			initialChatLogCapacity            = 100;
+			initialMessagesPerClient          = 5;
+			sleepTimeRoomConsumerThreadMillis = 100;
+			waitReadyTimeoutMillis            = 5_000;
+			systemMessagesUsername            = "ZoleraChatSys";
 			
 			break;
 		}
@@ -89,6 +95,18 @@ public final class ServerConfiguration {
 	
 	public int getInitialMessagesPerClient() {
 		return initialMessagesPerClient;
+	}
+	
+	public long getSleepTimeRoomConsumerThreadMillis() {
+		return sleepTimeRoomConsumerThreadMillis;
+	}
+	
+	public long getWaitReadyTimeoutMillis() {
+		return waitReadyTimeoutMillis;
+	}
+	
+	public String getSystemMessagesUsername() {
+		return systemMessagesUsername;
 	}
 	
 	// Factory Methods

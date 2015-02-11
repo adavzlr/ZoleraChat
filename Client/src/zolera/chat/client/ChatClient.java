@@ -19,7 +19,8 @@ implements IChatClient {
 	private String username;
 	private String roomname;
 	
-	private String lastMsgUser;
+	private String             lastMsgUser;
+	private ChatLog            chatlog;
 	
 	private IChatClient clientRef;
 	private IChatServer serverRef;
@@ -34,6 +35,7 @@ implements IChatClient {
 		roomname = config.getDefaultRoomname(); // we currently don't support multiple chat rooms
 		
 		lastMsgUser = null;
+		chatlog     = new ChatLog(config.getInitialChatLogCapacity());
 		
 		clientRef = null;
 		serverRef = null;
@@ -149,13 +151,17 @@ implements IChatClient {
 		return new TerminateClientException("Failure on RMI layer", re);
 	}
 	
+	private TerminateClientException getValidityCheckException(String op) {
+		return new TerminateClientException("Validity check of " + op + " failed");
+	}
+	
 	private TerminateClientException getServerResponseException(int retcode) {
 		return new TerminateClientException("Unexpected response from server (" + retcode + ")");
 	}
 	
 	private void serviceLoop()
 	throws TerminateClientException {
-		System.out.println("----- Chat Room '" + roomname + "' (message log) -----");
+		submitReady();
 		
 		// We break out when a special termination string is submitted as a Message
 		while (true) {
@@ -186,7 +192,7 @@ implements IChatClient {
 			int retcode = roomRef.submit(clientRef, msg);
 			
 			if (retcode == IChatRoom.VALIDITY_CHECK_FAILED)
-				throw new TerminateClientException("Validity check of the submission failed");
+				throw getValidityCheckException("message submission");
 			else if (retcode != IChatRoom.MESSAGE_SUBMITTED)
 				throw getServerResponseException(retcode);
 		}
@@ -195,20 +201,54 @@ implements IChatClient {
 		}
 	}
 	
+	private void submitReady()
+	throws TerminateClientException {
+		try {
+			int retcode = roomRef.ready(clientRef);
+			if (retcode == IChatRoom.VALIDITY_CHECK_FAILED)
+				throw getValidityCheckException("ready submission");
+			else if (retcode != IChatRoom.READY_ACKNOWLEDGED)
+				throw getServerResponseException(retcode);
+		}
+		catch (RemoteException re) {
+			throw getRMIException(re);
+		}
+	}
+	
 	@Override
-	public void receive(ChatMessage msg)
+	public synchronized void receive(ChatMessage msg)
 	throws RemoteException {
-		String sender = msg.getSenderName();
-		String text   = msg.getMessageText();
+		String  sender = msg.getSenderName();
+		String  text   = msg.getMessageText();
+		boolean sysmsg = sender.equals(config.getSystemMessagesUsername());
+		
+		// add to log
+		chatlog.addMessage(msg);
 		
 		// print sender header
-		if (!sender.equals(lastMsgUser)) {
+		if (sysmsg)
+			lastMsgUser = null;
+		else if (!sender.equals(lastMsgUser)) {
 			lastMsgUser = sender;
 			System.out.println(sender + ":");
 		}
 		
+		if (sysmsg)
+			System.out.print(">>>");
+		
 		// print message
 		System.out.println("\t" + text);
+	}
+	
+	@Override
+	public synchronized void receiveBatch(ChatMessage[] messages)
+	throws RemoteException {
+		System.out.println("----- Chat Room '" + roomname + "' (message log) -----");
+		
+		for (int m = 0; m < messages.length; m++)
+			receive(messages[m]);
+		
+		System.out.println("----- Chat Room '" + roomname + "' (end of log) -----");
 	}
 	
 	public static void main(String args[]) {
