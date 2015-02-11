@@ -1,78 +1,218 @@
 package zolera.chat.client;
 
+import java.io.*;
+
 import java.rmi.*;
 import java.rmi.registry.*;
 import java.rmi.server.*;
+
 import java.util.*;
 
 import zolera.chat.infrastructure.*;
 
 public class ChatClient
 implements IChatClient {
-	private String    username;
+	private Scanner input;
+	private boolean running;
+	private ServerConfiguration config;
+	
+	private String username;
+	private String roomname;
+	
+	private String lastMsgUser;
 	
 	private IChatClient clientRef;
 	private IChatServer serverRef;
 	private IChatRoom   roomRef;
 	
-	public ChatClient(String name) {
-		username = name;
-		connectToServer();		
+	public ChatClient(InputStream is) {
+		input   = new Scanner(is);
+		running = false;
+		config  = ServerConfiguration.getDefaultConfiguration();
+		
+		username = null;
+		roomname = config.getDefaultRoomname(); // we currently don't support multiple chat rooms
+		
+		lastMsgUser = null;
+		
+		clientRef = null;
+		serverRef = null;
+		roomRef   = null;
 	}
 	
-	public void connectToServer() {
+	public boolean isRunning() {
+		return running;
+	}
+	
+	public void run() {
+		running = true;
+		
 		try {
-			clientRef = (IChatClient) UnicastRemoteObject.exportObject(this, 0);
-			serverRef = (IChatServer) LocateRegistry.getRegistry("localhost").lookup("ZoleraChatServer");
-			roomRef   = serverRef.connect(username, clientRef);
-			
-			if (roomRef == null)
-				throw new IllegalStateException("ZoleraChat Client: connection refused by server");
+			System.out.println("ZoleraChat Client started\n");
+			selectName();
+			connectToServer();
+			joinChatRoom();
+			serviceLoop();
 		}
-		catch (Exception e) {
-			throw new IllegalStateException("ZoleraChat Client: error connecting to server", e);
-		}
-	}
-	
-	public void startChatLoop() {
-		System.out.println("ZoleraChat Client: Started. Logged in as " + username);
-		
-		Scanner input   = new Scanner(System.in);
-		ChatMessage msg = new ChatMessage(username, null);
-		
-		while (input.hasNextLine()) {
-			String line = input.nextLine();
-			
-			if (!line.equals("")) {
-				msg.setMessageText(line);
-				submitMessage(msg);
+		catch (TerminateClientException tce) {
+			// gracefully terminate client when it hits an unrecoverable exception
+			if (DebuggingTools.DEBUG_MODE)
+				throw new RuntimeException("Client termination requested", tce);
+			else {
+				System.out.println();
+				System.out.println("Error: " + tce.getMessage());
+				System.out.println("Terminating client");
 			}
 		}
 		
+		terminate();
+		return;
+	}
+	
+	private void terminate() {
+		running = false;
 		input.close();
 	}
 	
-	public void submitMessage(ChatMessage msg) {
-		try {
-			roomRef.submit(msg);
+	private void selectName()
+	throws TerminateClientException {
+		// we break out when an appropriate name is chosen
+		while (true) {
+			String name, ok;
+			
+			System.out.print("Choose a username: ");
+			name = nextInputLine();
+			
+			if (!name.matches(config.getUsernamePattern())) {
+				System.out.println();
+				System.out.println("Invalid username");
+				System.out.println("Use alphanumeric characters and underscores only");
+				System.out.println("Length must be between 1 and " + config.getMaxUsernameLength() + " characters");
+				System.out.println("Try again");
+				System.out.println();
+				continue;
+			}
+			
+			System.out.print("Is '" + name + "' OK? [Y/N]: ");
+			ok = nextInputLine();
+			
+			if (!ok.matches("^[YN]$") || ok.equals("N")) {
+				System.out.println("Try again");
+				System.out.println();
+				continue;
+			}
+			
+			// if you get here it means the name is appropriate and we are done
+			username = name;
+			System.out.println("Your username is '" + username + "'");
+			System.out.println();
+			break;
 		}
-		catch(Exception e) {
-			IllegalStateException ise = new IllegalStateException("ZoleraChat Client: error submitting message", e);
-			ise.printStackTrace();
+	}
+	
+	private void connectToServer()
+	throws TerminateClientException {
+		System.out.println("Connecting to server");
+		
+		try {
+			clientRef = (IChatClient) UnicastRemoteObject.exportObject(this, 0);
+			serverRef = (IChatServer) LocateRegistry.getRegistry("localhost").lookup("ZoleraChatServer");
+		}
+		catch(RemoteException re) {
+			throw getRMIException(re);
+		}
+		catch(NotBoundException nbe) {
+			throw new TerminateClientException("Server unavailable");
+		}
+	}
+	
+	private void joinChatRoom()
+	throws TerminateClientException {
+		System.out.println("Joining chat room '" + roomname + "'");
+		
+		try {
+			int retcode = serverRef.connect(roomname, username, clientRef);
+			
+			if (retcode == IChatServer.CONNECTION_SUCCESSFUL)
+				roomRef = serverRef.getRoomRef(roomname, clientRef);
+			else if (retcode == IChatServer.ROOM_IS_FULL)
+				throw new TerminateClientException("Chat room '" + roomname + "' is full");
+			else
+				throw getServerResponseException(retcode);
+		}
+		catch (RemoteException re) {
+			throw getRMIException(re);
+		}
+	}
+	
+	private TerminateClientException getRMIException(RemoteException re) {
+		return new TerminateClientException("Failure on RMI layer", re);
+	}
+	
+	private TerminateClientException getServerResponseException(int retcode) {
+		return new TerminateClientException("Unexpected response from server (" + retcode + ")");
+	}
+	
+	private void serviceLoop()
+	throws TerminateClientException {
+		System.out.println("----- Chat Room '" + roomname + "' (message log) -----");
+		
+		// We break out when a special termination string is submitted as a Message
+		while (true) {
+			String line = nextInputLine();
+			
+			if (line.equals(""))
+				continue;   // ignore empty lines
+			else if (config.getClientTerminationString().toLowerCase().equals(line.toLowerCase()))
+				break;   // exit service loop
+			else {
+				ChatMessage msg = new ChatMessage(username, line);
+				submitMessage(msg);
+			}
+		}
+	}
+	
+	private String nextInputLine()
+	throws TerminateClientException {
+		if (!input.hasNextLine())
+			throw new TerminateClientException("Input stream reached EOF");
+		
+		return input.nextLine();
+	}
+	
+	private void submitMessage(ChatMessage msg)
+	throws TerminateClientException {
+		try {
+			int retcode = roomRef.submit(clientRef, msg);
+			
+			if (retcode == IChatRoom.VALIDITY_CHECK_FAILED)
+				throw new TerminateClientException("Validity check of the submission failed");
+			else if (retcode != IChatRoom.MESSAGE_SUBMITTED)
+				throw getServerResponseException(retcode);
+		}
+		catch(RemoteException re) {
+			throw getRMIException(re);
 		}
 	}
 	
 	@Override
-	public void receive(IChatMessage msg)
+	public void receive(ChatMessage msg)
 	throws RemoteException {
-		System.out.println(msg.getSenderName() + ": " + msg.getMessageText());
+		String sender = msg.getSenderName();
+		String text   = msg.getMessageText();
+		
+		// print sender header
+		if (!sender.equals(lastMsgUser)) {
+			lastMsgUser = sender;
+			System.out.println(sender + ":");
+		}
+		
+		// print message
+		System.out.println("\t" + text);
 	}
 	
 	public static void main(String args[]) {
-		if (args.length < 1)
-			throw new IllegalArgumentException("ZoleraChat Client: must provide username");
-		
-		ChatClient client = new ChatClient(args[0]);
-		client.startChatLoop();
+		ChatClient client = new ChatClient(System.in);
+		client.run();
 	}
 }
