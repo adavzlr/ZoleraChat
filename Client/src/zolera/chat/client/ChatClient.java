@@ -12,24 +12,24 @@ import zolera.chat.infrastructure.*;
 
 public class ChatClient
 implements IChatClient {
-	private Scanner input;
-	private boolean running;
 	private ServerConfiguration config;
+	private Scanner input;
+	private int serverId;
 	
 	private String username;
 	private String roomname;
 	
-	private String             lastMsgUser;
-	private ChatLog            chatlog;
+	private String  lastMsgUser;
+	private ChatLog chatlog;
 	
 	private IChatClient clientRef;
 	private IChatServer serverRef;
 	private IChatRoom   roomRef;
 	
-	public ChatClient(InputStream is) {
-		input   = new Scanner(is);
-		running = false;
-		config  = ServerConfiguration.getDefaultConfiguration();
+	public ChatClient() {
+		input    = null;
+		serverId = -1;
+		config   = ServerConfiguration.getDefaultConfiguration();
 		
 		username = null;
 		roomname = config.getDefaultRoomname(); // we currently don't support multiple chat rooms
@@ -42,16 +42,14 @@ implements IChatClient {
 		roomRef   = null;
 	}
 	
-	public boolean isRunning() {
-		return running;
-	}
-	
-	public void run() {
-		running = true;
+	public void run(InputStream is) {
+		input = new Scanner(is);
 		
 		try {
 			System.out.println("ZoleraChat Client started\n");
+			selectServer();
 			selectName();
+			
 			connectToServer();
 			joinChatRoom();
 			serviceLoop();
@@ -66,41 +64,33 @@ implements IChatClient {
 				System.out.println("Terminating client");
 			}
 		}
-		
-		terminate();
-		return;
+		finally {
+			input.close();
+		}
 	}
 	
-	private void terminate() {
-		running = false;
-		input.close();
+	private void selectServer()
+	throws TerminateClientException {
+		System.out.print("Choose a server id: ");
+		String idLine = nextInputLine();
+		
+		if (!idLine.matches("^[0-9]{1,3}$"))
+			throw new TerminateClientException("Server is is not an integer (" + idLine + ")");
+		
+		serverId = Integer.parseInt(idLine);
+		if (serverId < 0 || serverId > config.getRegistryAddressesListLength())
+			throw new TerminateClientException("Invalid server id (" + serverId + ")");
 	}
 	
 	private void selectName()
 	throws TerminateClientException {
-		// we break out when an appropriate name is chosen
-		while (true) {
-			String name;
-			
-			System.out.print("Choose a username: ");
-			name = nextInputLine();
-			
-			if (!name.matches(config.getUsernamePattern())) {
-				System.out.println();
-				System.out.println("Invalid username");
-				System.out.println("Use alphanumeric characters and underscores only");
-				System.out.println("Length must be between 1 and " + config.getMaxUsernameLength() + " characters");
-				System.out.println("Try again");
-				System.out.println();
-				continue;
-			}
-			
-			// if you get here it means the name is appropriate and we are done
-			username = name;
-			System.out.println("Your username is '" + username + "'");
-			System.out.println();
-			break;
-		}
+		System.out.print("Choose a username: ");
+		username = nextInputLine();
+		
+		if (!username.matches(config.getUsernamePattern()))
+			throw new TerminateClientException();
+		
+		System.out.println("Your username is '" + username + "'\n");
 	}
 	
 	private void connectToServer()
@@ -110,32 +100,35 @@ implements IChatClient {
 		try {
 			clientRef = (IChatClient) UnicastRemoteObject.exportObject(this, 0);
 			serverRef = (IChatServer) LocateRegistry.getRegistry("localhost").lookup("ZoleraChatServer");
+			roomRef   = serverRef.getRoomRef(roomname, clientRef);
 		}
 		catch(RemoteException re) {
 			throw getRMIException(re);
 		}
 		catch(NotBoundException nbe) {
-			throw new TerminateClientException("Server unavailable");
+			throw new TerminateClientException("Server unreachable");
 		}
+		
+		if (roomRef == null)
+			throw getValidityCheckException("room reference request");
 	}
 	
 	private void joinChatRoom()
 	throws TerminateClientException {
+		int retcode;
 		System.out.println("Joining chat room '" + roomname + "'");
 		
 		try {
-			int retcode = serverRef.connect(roomname, username, clientRef);
-			
-			if (retcode == IChatServer.CONNECTION_SUCCESSFUL)
-				roomRef = serverRef.getRoomRef(roomname, clientRef);
-			else if (retcode == IChatServer.ROOM_IS_FULL)
-				throw new TerminateClientException("Chat room '" + roomname + "' is full");
-			else
-				throw getServerResponseException(retcode);
+			retcode = roomRef.join(username, clientRef);
 		}
 		catch (RemoteException re) {
 			throw getRMIException(re);
 		}
+		
+		if (retcode == IChatRoom.ROOM_IS_FULL)
+			throw new TerminateClientException("Room is full");
+		else if (retcode != IChatRoom.SUCCESSFUL_JOIN)
+			throw getServerResponseException(retcode);
 	}
 	
 	private TerminateClientException getRMIException(RemoteException re) {
@@ -152,8 +145,6 @@ implements IChatClient {
 	
 	private void serviceLoop()
 	throws TerminateClientException {
-		submitReady();
-		
 		// We break out when a special termination string is submitted as a Message
 		while (true) {
 			String line = nextInputLine();
@@ -188,20 +179,6 @@ implements IChatClient {
 				throw getServerResponseException(retcode);
 		}
 		catch(RemoteException re) {
-			throw getRMIException(re);
-		}
-	}
-	
-	private void submitReady()
-	throws TerminateClientException {
-		try {
-			int retcode = roomRef.ready(clientRef);
-			if (retcode == IChatRoom.VALIDITY_CHECK_FAILED)
-				throw getValidityCheckException("ready submission");
-			else if (retcode != IChatRoom.READY_ACKNOWLEDGED)
-				throw getServerResponseException(retcode);
-		}
-		catch (RemoteException re) {
 			throw getRMIException(re);
 		}
 	}
@@ -245,7 +222,7 @@ implements IChatClient {
 	}
 	
 	public static void main(String args[]) {
-		ChatClient client = new ChatClient(System.in);
-		client.run();
+		ChatClient client = new ChatClient();
+		client.run(System.in);
 	}
 }

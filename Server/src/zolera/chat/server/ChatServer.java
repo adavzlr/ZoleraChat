@@ -35,6 +35,8 @@ implements IChatServer {
 		}
 		catch (TerminateServerException tse) {
 			// gracefully terminate server when it hits an unrecoverable exception
+			terminate();
+			
 			if (DebuggingTools.DEBUG_MODE)
 				throw new RuntimeException("Server termination requested", tse);
 			else {
@@ -42,8 +44,6 @@ implements IChatServer {
 				System.out.println("Error: " + tse.getMessage());
 				System.out.println("Terminating server");
 			}
-			
-			terminate();
 		}
 		
 		return;
@@ -112,59 +112,15 @@ implements IChatServer {
 	
 	
 	@Override
-	public int connect(String roomname, String username, IChatClient clientRef)
-	throws RemoteException {
-		if (!connect_checkParameters(roomname, username, clientRef))
-			return IChatServer.VALIDITY_CHECK_FAILED;
-		
-		ChatRoom room = defaultRoom;
-		synchronized(room) {
-			if (!connect_verifyValidity(room, clientRef))
-				return IChatServer.VALIDITY_CHECK_FAILED;
-			
-			if (room.addClient(username, clientRef))
-				return IChatServer.CONNECTION_SUCCESSFUL;
-			else
-				return IChatServer.ROOM_IS_FULL;
-		}
-	}
-	
-	private boolean connect_checkParameters(String roomname, String username, IChatClient clientRef) {
-		if (roomname == null || username == null || clientRef == null)
-			return false;
-		if (!roomname.matches(config.getRoomnamePattern()))
-			return false;
-		if (!username.matches(config.getUsernamePattern()))
-			return false;
-		if (!roomname.equals(config.getDefaultRoomname()))
-			return false; // not currently supporting other rooms
-		
-		return true;
-	}
-	
-	private boolean connect_verifyValidity(ChatRoom room, IChatClient clientRef) {
-		if (room.isClient(clientRef))
-			return false;
-		
-		return true;
-	}
-	
-	@Override
 	public IChatRoom getRoomRef(String roomname, IChatClient clientRef)
 	throws RemoteException {
-		if (!getRoomRef_checkParameters(roomname, clientRef))
+		if (!getRoomRef_verifyValidity(roomname, clientRef))
 			return null;
 		
-		ChatRoom room = defaultRoom;		
-		synchronized(room) {
-			if (!getRoomRef_verifyValidity(room, clientRef))
-				return null;
-			
-			return room.getRoomRef();
-		}
+		return defaultRoom.getRoomRef();
 	}
 	
-	private boolean getRoomRef_checkParameters(String roomname, IChatClient clientRef) {
+	private boolean getRoomRef_verifyValidity(String roomname, IChatClient clientRef) {
 		if (roomname == null || clientRef == null)
 			return false;
 		if (!roomname.matches(config.getRoomnamePattern()))
@@ -175,14 +131,6 @@ implements IChatServer {
 		return true;
 	}
 	
-	private boolean getRoomRef_verifyValidity(ChatRoom room, IChatClient clientRef) {
-		if(!room.isClient(clientRef))
-			return false;
-		if (room.getClientHandle(clientRef).isReady())
-			return false;
-
-		return true;
-	}
 	
 	
 	public static void main(String args[]) {

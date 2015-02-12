@@ -109,24 +109,15 @@ implements IChatRoom, Runnable {
 			ChatClientHandle handle    = iterator.next();
 			
 			try {
-				if (handle.isReady()) {
-					sendMessageBatchToClient(handle, msg);
-				}
-				else {
-					long timeSinceCreation = System.currentTimeMillis() - handle.getCreationTime();
-					
-					if (timeSinceCreation > config.getWaitReadyTimeoutMillis())
-						throw getRemovingUserException(handle, "ready timeout", null);
-				}
+				sendMessageBatchToClient(handle, msg);
 			}
 			catch (DeadClientException dce) {
-				// Remove client when we determine it is unresponsive (timeout or RMI exceptions)
-				
 				if (DebuggingTools.DEBUG_MODE)
 					dce.printStackTrace();
 				else
 					System.out.println("\nError: " + dce.getMessage());
 				
+				// Remove client when we determine it is unresponsive
 				addMessage(new ChatMessage(config.getSystemMessagesUsername(),"User " + handle.getUsername() + " left the room"));
 				iterator.remove();
 			}
@@ -167,8 +158,7 @@ implements IChatRoom, Runnable {
 	}
 	
 	public synchronized boolean addClient(String clientName, IChatClient clientRef) {
-		if (isFull() || isClient(clientRef))
-			return false;
+		
 		
 		ChatClientHandle clientHandle = new ChatClientHandle(clientName, clientRef);
 		clients.put(clientRef, clientHandle);
@@ -201,6 +191,37 @@ implements IChatRoom, Runnable {
 	
 	
 	@Override
+	public synchronized int join(String username, IChatClient clientRef)
+	throws RemoteException {
+		if (!join_verifyValidity(username, clientRef))
+			return IChatRoom.VALIDITY_CHECK_FAILED;
+		if (isFull())
+			return IChatRoom.ROOM_IS_FULL;
+		
+		addClient(username, clientRef);
+		
+		// send all the messages on chat log to the new client
+		ChatMessage[] messages = chatlog.getAllMessages();
+		clientRef.receiveLog(messages);
+		
+		// inform users of joining user
+		addMessage(new ChatMessage(config.getSystemMessagesUsername(), "User '" + username + "' joined the room"));
+		
+		return IChatRoom.SUCCESSFUL_JOIN;
+	}
+	
+	private boolean join_verifyValidity(String username, IChatClient clientRef) {
+		if (username == null || clientRef == null)
+			return false;
+		if (!username.matches(config.getUsernamePattern()))
+			return false;
+		if (isClient(clientRef))
+			return false;
+		
+		return true;
+	}
+	
+	@Override
 	public synchronized int submit(IChatClient clientRef, ChatMessage msg)
 	throws RemoteException {
 		if (!submit_verifyValidity(clientRef, msg))
@@ -214,45 +235,13 @@ implements IChatRoom, Runnable {
 	private synchronized boolean submit_verifyValidity(IChatClient clientRef, ChatMessage msg) {
 		if (clientRef == null || msg == null)
 			return false;
-		if (!isClient(clientRef))
-			return false;
 		if (msg.getSenderName() == null || msg.getMessageText() == null)
 			return false;
+		if (!isClient(clientRef))
+			return false;
 		
 		ChatClientHandle handle = getClientHandle(clientRef);
-		if (!handle.isReady())
-			return false;
 		if (!handle.getUsername().equals(msg.getSenderName()))
-			return false;
-		
-		return true;
-	}
-
-	@Override
-	public synchronized int ready(IChatClient clientRef)
-	throws RemoteException {
-		if (!ready_verifyValidity(clientRef))
-			return IChatRoom.VALIDITY_CHECK_FAILED;
-		
-		ChatClientHandle handle = getClientHandle(clientRef);
-		handle.setReady(true);
-		
-		// send all the messages on chatlog to the new client
-		ChatMessage[] messages = chatlog.getAllMessages();
-		clientRef.receiveLog(messages);
-		
-		// inform users of joining user
-		addMessage(new ChatMessage(config.getSystemMessagesUsername(), "User '" + handle.getUsername() + "' joined the room"));
-		
-		return IChatRoom.READY_ACKNOWLEDGED;
-	}
-	
-	private synchronized boolean ready_verifyValidity(IChatClient clientRef) {
-		if (clientRef == null || !isClient(clientRef))
-			return false;
-		
-		ChatClientHandle handle = getClientHandle(clientRef);
-		if (handle.isReady())
 			return false;
 		
 		return true;

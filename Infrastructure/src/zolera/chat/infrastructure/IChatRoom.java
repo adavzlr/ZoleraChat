@@ -5,12 +5,13 @@ import java.rmi.*;
 public interface IChatRoom
 extends Remote {
 	public static final int MESSAGE_SUBMITTED     = 100;
-	public static final int READY_ACKNOWLEDGED    = 200;
+	public static final int SUCCESSFUL_JOIN       = 200;
+	public static final int ROOM_IS_FULL          = 210;
 	public static final int VALIDITY_CHECK_FAILED = 1_000_001;
 	
-	public int submit(IChatClient clientRef, ChatMessage msg)
+	public int join(String username, IChatClient clientRef)
 	throws RemoteException;
 	
-	public int ready(IChatClient clientRef)
+	public int submit(IChatClient clientRef, ChatMessage msg)
 	throws RemoteException;
 }
