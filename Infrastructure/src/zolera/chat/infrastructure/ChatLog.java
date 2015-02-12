@@ -13,6 +13,11 @@ public class ChatLog {
 		messages.add(msg);
 	}
 	
+	public void addMessageBatch(ChatMessage[] msg) {
+		for (int m = 0; m < msg.length; m++)
+			messages.add(msg[m]);
+	}
+	
 	public ChatMessage[] getAllMessages() {
 		ChatMessage[] all = new ChatMessage[messages.size()];
 		messages.toArray(all);

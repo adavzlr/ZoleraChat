@@ -75,10 +75,10 @@ implements IChatRoom, Runnable {
 					throw new InterruptedException("Interruption detected in service loop");
 				
 				synchronized(this) {
-					while (!pending.isEmpty()) {
-						ChatMessage msg = getMessage();
-						broadcastMessageToClients(msg);
-					}
+					ChatMessage[] msg = getMessageBatch();
+					
+					if (msg != null)
+						broadcastMessageBatchToClients(msg);
 				}
 			
 				consumerThreadSleep();
@@ -101,8 +101,8 @@ implements IChatRoom, Runnable {
 		} while (ellapsedTime < sleepTime);
 	}
 	
-	private synchronized void broadcastMessageToClients(ChatMessage msg) {
-		chatlog.addMessage(msg);
+	private synchronized void broadcastMessageBatchToClients(ChatMessage[] msg) {
+		chatlog.addMessageBatch(msg);
 		
 		Iterator<ChatClientHandle> iterator = clients.values().iterator();
 		while(iterator.hasNext()) {
@@ -110,7 +110,7 @@ implements IChatRoom, Runnable {
 			
 			try {
 				if (handle.isReady()) {
-					sendMessageToClient(handle, msg);
+					sendMessageBatchToClient(handle, msg);
 				}
 				else {
 					long timeSinceCreation = System.currentTimeMillis() - handle.getCreationTime();
@@ -133,10 +133,10 @@ implements IChatRoom, Runnable {
 		}
 	}
 	
-	private synchronized void sendMessageToClient(ChatClientHandle handle, ChatMessage msg)
+	private synchronized void sendMessageBatchToClient(ChatClientHandle handle, ChatMessage[] msg)
 	throws DeadClientException {
 		try {
-			handle.getClientRef().receive(msg);
+			handle.getClientRef().receiveBatch(msg);
 		}
 		catch (RemoteException re) {
 			throw getRemovingUserException(handle, "RMI layer", re);
@@ -187,11 +187,15 @@ implements IChatRoom, Runnable {
 		pending.add(msg);
 	}
 	
-	private synchronized ChatMessage getMessage() {
+	private synchronized ChatMessage[] getMessageBatch() {
 		if (pending.isEmpty())
 			return null;
-		else
-			return pending.remove();
+		
+		ChatMessage[] batch = new ChatMessage[pending.size()];
+		for (int m = 0; m < batch.length; m++)
+			batch[m] = pending.remove();
+		
+		return batch;
 	}
 	
 	
@@ -235,7 +239,7 @@ implements IChatRoom, Runnable {
 		
 		// send all the messages on chatlog to the new client
 		ChatMessage[] messages = chatlog.getAllMessages();
-		clientRef.receiveBatch(messages);
+		clientRef.receiveLog(messages);
 		
 		// inform users of joining user
 		addMessage(new ChatMessage(config.getSystemMessagesUsername(), "User '" + handle.getUsername() + "' joined the room"));

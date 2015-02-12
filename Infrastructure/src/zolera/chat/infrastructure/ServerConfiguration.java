@@ -53,10 +53,10 @@ public final class ServerConfiguration {
 			waitReadyTimeoutMillis            = 5_000;
 			systemMessagesUsername            = "ZoleraChatSys";
 			registryAddressesList                        = new String[]{
+					              					"localhost:1099",
 					              					"localhost:1001",
 					              					"localhost:1002",
-					              					"localhost:1003",
-					              					"localhost:1099"
+					              					"localhost:1003"
 					              				};
 			break;
 		}

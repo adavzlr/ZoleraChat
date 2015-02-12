@@ -80,7 +80,7 @@ implements IChatClient {
 	throws TerminateClientException {
 		// we break out when an appropriate name is chosen
 		while (true) {
-			String name, ok;
+			String name;
 			
 			System.out.print("Choose a username: ");
 			name = nextInputLine();
@@ -90,15 +90,6 @@ implements IChatClient {
 				System.out.println("Invalid username");
 				System.out.println("Use alphanumeric characters and underscores only");
 				System.out.println("Length must be between 1 and " + config.getMaxUsernameLength() + " characters");
-				System.out.println("Try again");
-				System.out.println();
-				continue;
-			}
-			
-			System.out.print("Is '" + name + "' OK? [Y/N]: ");
-			ok = nextInputLine();
-			
-			if (!ok.matches("^[YN]$") || ok.equals("N")) {
 				System.out.println("Try again");
 				System.out.println();
 				continue;
@@ -216,8 +207,13 @@ implements IChatClient {
 	}
 	
 	@Override
-	public synchronized void receive(ChatMessage msg)
+	public synchronized void receiveBatch(ChatMessage[] batch)
 	throws RemoteException {
+		for (int m = 0; m < batch.length; m++)
+			printMessage(batch[m]);
+	}
+	
+	public synchronized void printMessage(ChatMessage msg) {
 		String  sender = msg.getSenderName();
 		String  text   = msg.getMessageText();
 		boolean sysmsg = sender.equals(config.getSystemMessagesUsername());
@@ -241,13 +237,10 @@ implements IChatClient {
 	}
 	
 	@Override
-	public synchronized void receiveBatch(ChatMessage[] messages)
+	public synchronized void receiveLog(ChatMessage[] batch)
 	throws RemoteException {
 		System.out.println("----- Chat Room '" + roomname + "' (message log) -----");
-		
-		for (int m = 0; m < messages.length; m++)
-			receive(messages[m]);
-		
+		receiveBatch(batch);
 		System.out.println("----- Chat Room '" + roomname + "' (end of log) -----");
 	}
 	
