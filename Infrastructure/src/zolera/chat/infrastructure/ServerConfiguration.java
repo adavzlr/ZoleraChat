@@ -29,6 +29,7 @@ public final class ServerConfiguration {
 	private final long   sleepTimeRoomConsumerThreadMillis;
 	private final long   waitReadyTimeoutMillis;
 	private final String systemMessagesUsername;
+	private final String [] registryAddressesList;
 	
 	private ServerConfiguration() {
 		this(0);
@@ -51,7 +52,12 @@ public final class ServerConfiguration {
 			sleepTimeRoomConsumerThreadMillis = 100;
 			waitReadyTimeoutMillis            = 5_000;
 			systemMessagesUsername            = "ZoleraChatSys";
-			
+			registryAddressesList                        = new String[]{
+					              					"localhost:1001",
+					              					"localhost:1002",
+					              					"localhost:1003",
+					              					"localhost:1099"
+					              				};
 			break;
 		}
 	}
@@ -107,6 +113,14 @@ public final class ServerConfiguration {
 	
 	public String getSystemMessagesUsername() {
 		return systemMessagesUsername;
+	}
+	
+	public String getRegistryAddress(int index){
+		return registryAddressesList[index];
+	}
+	
+	public int getRegistryAddressesListLength(){
+		return registryAddressesList.length;
 	}
 	
 	// Factory Methods

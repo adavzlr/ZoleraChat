@@ -1,8 +1,10 @@
 package zolera.chat.server;
 
+import java.io.InputStream;
 import java.rmi.*;
 import java.rmi.registry.*;
 import java.rmi.server.*;
+import java.util.Scanner;
 
 import zolera.chat.infrastructure.*;
 
@@ -10,10 +12,15 @@ public class ChatServer
 implements IChatServer {
 	private ServerConfiguration config;
 	private ChatRoom defaultRoom;
+	private int registryId;
+	private String registryHost;
+	private int registryPort;
 	
 	private IChatServer serverRef;
+	private Scanner input;
 	
-	public ChatServer() {
+	public ChatServer(InputStream is) {
+		input = new Scanner(is);
 		config      = ServerConfiguration.getGlobal();
 		defaultRoom = null;
 		serverRef   = null;
@@ -72,12 +79,43 @@ implements IChatServer {
 	
 	private void register()
 	throws TerminateServerException {
+		readServerId();
+		loadRegistryInfo();
 		try {
 			serverRef = (IChatServer) UnicastRemoteObject.exportObject(this, 0);
-			LocateRegistry.getRegistry().rebind(config.getServerRegisteredName(), serverRef);
+			LocateRegistry.getRegistry(registryHost, registryPort).rebind(config.getServerRegisteredName(), serverRef);
+			//LocateRegistry.getRegistry().rebind(config.getServerRegisteredName(), serverRef);
 		}
 		catch (RemoteException re) {
 			throw getRMIException(re);
+		}
+	}
+	
+	private void loadRegistryInfo()
+	throws TerminateServerException {
+		String registryAddress = config.getRegistryAddress(registryId);
+		String [] splitAddress = registryAddress.split(":");
+		if(splitAddress.length == 2){
+			registryHost = splitAddress[0];
+			registryPort = Integer.parseInt(splitAddress[1]);
+		}
+		else
+		{
+			throw new TerminateServerException("Invalid format in registry address");
+		}
+	}
+	
+	private void readServerId()
+	throws TerminateServerException {
+		System.out.println("Server ID: ");
+		if(input.hasNextInt()){
+			registryId = input.nextInt();
+			if(registryId < 1 || registryId > ServerConfiguration.getDefaultConfiguration().getRegistryAddressesListLength()){
+				throw new TerminateServerException("Invalid Id");
+			}
+		}
+		else {
+			throw new TerminateServerException("Not an integer");
 		}
 	}
 	
@@ -159,13 +197,10 @@ implements IChatServer {
 
 		return true;
 	}
-		
-		
-	
 	
 	
 	public static void main(String args[]) {
-		ChatServer server = new ChatServer();
+		ChatServer server = new ChatServer(System.in);
 		server.run();
 	}
 }
