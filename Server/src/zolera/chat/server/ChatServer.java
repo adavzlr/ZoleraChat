@@ -112,16 +112,16 @@ implements IChatServer {
 	
 	
 	@Override
-	public IChatRoom getRoomRef(String roomname, IChatClient clientRef)
+	public IChatRoom reference(String roomname)
 	throws RemoteException {
-		if (!getRoomRef_verifyValidity(roomname, clientRef))
+		if (!reference_verifyValidity(roomname))
 			return null;
 		
-		return defaultRoom.getRoomRef();
+		return defaultRoom.getReference();
 	}
 	
-	private boolean getRoomRef_verifyValidity(String roomname, IChatClient clientRef) {
-		if (roomname == null || clientRef == null)
+	private boolean reference_verifyValidity(String roomname) {
+		if (roomname == null)
 			return false;
 		if (!roomname.matches(config.getRoomnamePattern()))
 			return false;

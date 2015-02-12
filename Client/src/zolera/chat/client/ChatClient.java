@@ -100,7 +100,7 @@ implements IChatClient {
 		try {
 			clientRef = (IChatClient) UnicastRemoteObject.exportObject(this, 0);
 			serverRef = (IChatServer) LocateRegistry.getRegistry("localhost").lookup("ZoleraChatServer");
-			roomRef   = serverRef.getRoomRef(roomname, clientRef);
+			roomRef   = serverRef.reference(roomname);
 		}
 		catch(RemoteException re) {
 			throw getRMIException(re);
@@ -184,7 +184,7 @@ implements IChatClient {
 	}
 	
 	@Override
-	public synchronized void receiveBatch(ChatMessage[] batch)
+	public synchronized void receive(ChatMessage[] batch)
 	throws RemoteException {
 		for (int m = 0; m < batch.length; m++)
 			printMessage(batch[m]);
@@ -214,10 +214,10 @@ implements IChatClient {
 	}
 	
 	@Override
-	public synchronized void receiveLog(ChatMessage[] batch)
+	public synchronized void chatlog(ChatMessage[] batch)
 	throws RemoteException {
 		System.out.println("----- Chat Room '" + roomname + "' (message log) -----");
-		receiveBatch(batch);
+		receive(batch);
 		System.out.println("----- Chat Room '" + roomname + "' (end of log) -----");
 	}
 	

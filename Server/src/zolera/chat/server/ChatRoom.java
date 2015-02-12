@@ -35,7 +35,7 @@ implements IChatRoom, Runnable {
 		roomRef = (IChatRoom) UnicastRemoteObject.exportObject(this, 0);
 	}
 	
-	public synchronized IChatRoom getRoomRef() {
+	public synchronized IChatRoom getReference() {
 		return roomRef;
 	}
 	
@@ -127,7 +127,7 @@ implements IChatRoom, Runnable {
 	private synchronized void sendMessageBatchToClient(ChatClientHandle handle, ChatMessage[] msg)
 	throws DeadClientException {
 		try {
-			handle.getClientRef().receiveBatch(msg);
+			handle.getClientRef().receive(msg);
 		}
 		catch (RemoteException re) {
 			throw getRemovingUserException(handle, "RMI layer", re);
@@ -202,7 +202,7 @@ implements IChatRoom, Runnable {
 		
 		// send all the messages on chat log to the new client
 		ChatMessage[] messages = chatlog.getAllMessages();
-		clientRef.receiveLog(messages);
+		clientRef.chatlog(messages);
 		
 		// inform users of joining user
 		addMessage(new ChatMessage(config.getSystemMessagesUsername(), "User '" + username + "' joined the room"));

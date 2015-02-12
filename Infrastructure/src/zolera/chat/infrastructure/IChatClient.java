@@ -4,9 +4,9 @@ import java.rmi.*;
 
 public interface IChatClient
 extends Remote {
-	public void receiveBatch(ChatMessage[] batch)
+	public void receive(ChatMessage[] batch)
 	throws RemoteException;
 	
-	public void receiveLog(ChatMessage[] batch)
+	public void chatlog(ChatMessage[] batch)
 	throws RemoteException;
 }

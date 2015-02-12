@@ -4,6 +4,6 @@ import java.rmi.*;
 
 public interface IChatServer
 extends Remote {
-	public IChatRoom getRoomRef(String roomname, IChatClient clientRef)
+	public IChatRoom reference(String roomname)
 	throws RemoteException;
 }
