@@ -13,7 +13,6 @@ implements IChatServer {
 	private ServerConfiguration config;
 	private ChatRoom defaultRoom;
 	private int registryId;
-	private String registryHost;
 	private int registryPort;
 	
 	private IChatServer serverRef;
@@ -83,8 +82,8 @@ implements IChatServer {
 		loadRegistryInfo();
 		try {
 			serverRef = (IChatServer) UnicastRemoteObject.exportObject(this, 0);
-			LocateRegistry.getRegistry(registryHost, registryPort).rebind(config.getServerRegisteredName(), serverRef);
-			//LocateRegistry.getRegistry().rebind(config.getServerRegisteredName(), serverRef);
+			Registry currentRegistry = LocateRegistry.createRegistry(registryPort);
+			currentRegistry.rebind(config.getServerRegisteredName(), serverRef);
 		}
 		catch (RemoteException re) {
 			throw getRMIException(re);
@@ -96,7 +95,6 @@ implements IChatServer {
 		String registryAddress = config.getRegistryAddress(registryId);
 		String [] splitAddress = registryAddress.split(":");
 		if(splitAddress.length == 2){
-			registryHost = splitAddress[0];
 			registryPort = Integer.parseInt(splitAddress[1]);
 		}
 		else

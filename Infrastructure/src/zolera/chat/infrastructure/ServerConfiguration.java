@@ -56,7 +56,7 @@ public final class ServerConfiguration {
 					              					"localhost:1001",
 					              					"localhost:1002",
 					              					"localhost:1003",
-					              					"localhost:1099"
+					              					"localhost:1004"
 					              				};
 			break;
 		}
