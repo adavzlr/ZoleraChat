@@ -116,6 +116,11 @@ public final class ServerConfiguration {
 	}
 	
 	public String getRegistryAddress(int index){
+		int length = registryAddressesList.length;
+		
+		if (index < 0 || index > length)
+			throw new IndexOutOfBoundsException("Index (" + index + ") out of bounds [0," + length + "]");
+		
 		return registryAddressesList[index];
 	}
 	

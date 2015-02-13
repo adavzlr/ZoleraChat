@@ -15,11 +15,11 @@
 <booleanAttribute key="net.genady.rmi.logRMIEvents" value="false"/>
 <booleanAttribute key="net.genady.rmi.logRMIEvents.noSerialization" value="false"/>
 <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
-<listEntry value="/Client/src/zolera/chat/client/ChatClient.java"/>
+<listEntry value="/Client/src/zolera/chat/client/CLIView.java"/>
 </listAttribute>
 <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
 <listEntry value="1"/>
 </listAttribute>
-<stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="zolera.chat.client.ChatClient"/>
+<stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="zolera.chat.client.CLIView"/>
 <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="Client"/>
 </launchConfiguration>
