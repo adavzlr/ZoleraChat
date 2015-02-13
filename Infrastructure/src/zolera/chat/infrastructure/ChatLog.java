@@ -19,4 +19,8 @@ public class ChatLog {
 		messages.toArray(all);
 		return all;
 	}
+	
+	public int getSize() {
+		return messages.size();
+	}
 }

@@ -15,71 +15,92 @@ implements RemoteClientModel {
 	private ProcessMessagesDelegate dlgMsgProc;
 	private ProcessMessagesDelegate dlgLogMsgProc;
 	
+	private int         serverId;
 	private String      username;
 	private String      roomname;
 	private RemoteServerModel serverRef;
 	private RemoteRoomModel   roomRef;
 	
-	
 	public ClientModel() {
-		config  = ServerConfiguration.getGlobal();
-				
+		config        = ServerConfiguration.getGlobal();
 		clientRef     = null;
-		dlgMsgProc    = null;
-		dlgLogMsgProc = null;
+		
+		serverId  = -1;
+		serverRef = null;
+		
 		username      = null;
 		roomname      = null;
 		chatlog       = null;
-		serverRef     = null;
+		dlgMsgProc    = null;
+		dlgLogMsgProc = null;
 		roomRef       = null;
+	}
+	
+	public int getServerId() {
+		return serverId;
+	}
+	
+	public String getUsername() {
+		return username;
+	}
+	
+	public String getRoomname() {
+		return roomname;
+	}
+	
+	public int getMessageCount() {
+		return chatlog.getSize();
 	}
 	
 	
 	
-	public void prepare(ProcessMessagesDelegate procMsg, ProcessMessagesDelegate procLogMsg)
+	public void prepare()
 	throws TerminateClientException {
 		// Single preparation for the entire life of the instance
 		if (clientRef != null)
 			throw new IllegalStateException("Cannot prepare the client more than once");
 		
 		// reset everything
-		username  = null;
-		roomname  = null;
-		chatlog   = null;
-		serverRef = null;
-		roomRef   = null;
+		serverId      = -1;
+		serverRef     = null;
+		username      = null;
+		roomname      = null;
+		chatlog       = null;
+		dlgMsgProc    = null;
+		dlgLogMsgProc = null;
+		roomRef       = null;
 		
 		try {
 			clientRef     = (RemoteClientModel) UnicastRemoteObject.exportObject(this, 0);
-			dlgMsgProc    = procMsg;
-			dlgLogMsgProc = procLogMsg;
 		}
 		catch (RemoteException re) {
 			throw getRMIException(re);
 		}
 	}
 	
-	public void connect(int serverId)
+	public void connect(int id)
 	throws TerminateClientException {
 		// Need to be prepared
 		if (clientRef == null)
 			throw new IllegalStateException("Cannot connect to a server until prepared");
 		
-		// reset everything.
-		username  = null;
-		roomname  = null;
-		chatlog   = null;
-		serverRef = null;
-		roomRef   = null;
+		// reset everything
+		username      = null;
+		roomname      = null;
+		chatlog       = null;
+		dlgMsgProc    = null;
+		dlgLogMsgProc = null;
+		roomRef       = null;
 		
 		try {
 			// Parse server address
-			String   serverAddress = config.getRegistryAddress(serverId);
+			String   serverAddress = config.getRegistryAddress(id);
 			String[] serverInfo    = serverAddress.split(":");
 			String   serverHost    = serverInfo[0];
 			int      serverPort    = Integer.parseInt(serverInfo[1]);
 			
 			// Look for the server reference in the registry at the given address
+			serverId  = id;
 			serverRef = (RemoteServerModel) LocateRegistry.getRegistry(serverHost, serverPort).lookup(config.getServerRegisteredName());
 		}
 		catch (NumberFormatException | IndexOutOfBoundsException ex) {
@@ -93,27 +114,28 @@ implements RemoteClientModel {
 		}
 	}
 	
-	public void join(String room, String user)
+	public void join(String room, String user, ProcessMessagesDelegate procMsg, ProcessMessagesDelegate procLogMsg)
 	throws TerminateClientException {
 		// Need to be prepared and connected
 		if (clientRef == null || serverRef == null)
 			throw new IllegalStateException("Cannot join a room until prepared and connected to a server");
 		
-		// reset everything, but the server information
-		username = user;
-		roomname = room;
-		chatlog  = new ChatLog(config.getInitialChatLogCapacity());
-		roomRef  = null;
-		
 		try {
-			// ask the server for a reference to the chat room
-			roomRef = serverRef.reference(roomname);
+			username      = user;
+			roomname      = room;
+			chatlog       = new ChatLog(config.getInitialChatLogCapacity());
+			dlgMsgProc    = procMsg;
+			dlgLogMsgProc = procLogMsg;
+			roomRef       = serverRef.reference(roomname);
+			
 			if (roomRef == null)
 				throw getValidityCheckException("room reference request");
 			
-			// join the chatroom
+			// join the chat room
 			int retcode = roomRef.join(user, clientRef);
-			if (retcode == RemoteRoomModel.ROOM_IS_FULL)
+			if (retcode == RemoteRoomModel.VALIDITY_CHECK_FAILED)
+				throw getValidityCheckException("room join request");
+			else if (retcode == RemoteRoomModel.ROOM_IS_FULL)
 				throw new TerminateClientException("Room is full");
 			else if (retcode != RemoteRoomModel.SUCCESSFUL_JOIN)
 				throw getServerResponseException(retcode);

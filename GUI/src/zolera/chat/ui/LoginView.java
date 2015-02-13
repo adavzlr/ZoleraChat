@@ -5,29 +5,68 @@
  */
 package zolera.chat.ui;
 
+import javax.swing.ComboBoxModel;
+import javax.swing.DefaultComboBoxModel;
+import zolera.chat.client.ClientModel;
+import zolera.chat.client.TerminateClientException;
+import zolera.chat.infrastructure.ServerConfiguration;
+
 /**
  *
  * @author ortiz
  */
 public class LoginView extends javax.swing.JFrame {
-
-    private final String errorMessage;
+    
+    private ServerConfiguration config;
+    private GUIView controller;
+    private ClientModel client;
+    
+    private String errorMessage;
     
     /**
      * Creates new form LoginFrame
-     * @param error
+     * @param control
      */
-    public LoginView(String error) {
-        errorMessage = error;
+    public LoginView(GUIView control) {
+        if (control == null)
+            throw new IllegalArgumentException("Expecting a controller");
+        
+        config     = ServerConfiguration.getGlobal();
+        controller = control;
+        client     = controller.getClient();
+        
+        errorMessage = null;
+        
         initComponents();
     }
     
+    
+    
     private String getErrorMessage() {
-        if (errorMessage == null)
-            return "";
-        else
+        if (errorMessage != null)
             return errorMessage;
+        
+        Exception ex = controller.getPendingException();
+        if (ex == null)
+            errorMessage = "";
+        else {
+            controller.setPendingException(null);
+            errorMessage = "Error: " + ex.getMessage();
+        }
+        
+        return errorMessage;
     }
+    
+    private ComboBoxModel getServerAddressesModel() {
+        String[] addresses = new String[config.getRegistryAddressesListLength()];
+        
+        for (int addr = 0; addr < config.getRegistryAddressesListLength(); addr++)
+            addresses[addr] = config.getRegistryAddress(addr);
+        
+        return new DefaultComboBoxModel(addresses);
+    }
+    
+    
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -43,20 +82,22 @@ public class LoginView extends javax.swing.JFrame {
         txfUsername = new javax.swing.JTextField();
         cmbServer = new javax.swing.JComboBox();
         btnJoin = new javax.swing.JButton();
-        pnlError = new javax.swing.JPanel();
-        lblError = new javax.swing.JLabel();
+        pnlErrorExt = new javax.swing.JPanel();
+        lblErrorMsg = new javax.swing.JLabel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        setTitle("ZoleraChat");
+        setTitle("Login");
         setLocationByPlatform(true);
         setMinimumSize(new java.awt.Dimension(400, 160));
         setResizable(false);
 
+        lblUsername.setLabelFor(txfUsername);
         lblUsername.setText("Username");
 
+        lblServer.setLabelFor(cmbServer);
         lblServer.setText("Server");
 
-        cmbServer.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        cmbServer.setModel(getServerAddressesModel());
 
         btnJoin.setText("Join");
         btnJoin.addActionListener(new java.awt.event.ActionListener() {
@@ -65,23 +106,23 @@ public class LoginView extends javax.swing.JFrame {
             }
         });
 
-        pnlError.setPreferredSize(new java.awt.Dimension(97, 50));
-        pnlError.setVisible(errorMessage != null);
+        pnlErrorExt.setPreferredSize(new java.awt.Dimension(97, 50));
+        pnlErrorExt.setVisible(!getErrorMessage().equals(""));
 
-        lblError.setForeground(new java.awt.Color(255, 0, 0));
-        lblError.setText(getErrorMessage());
+        lblErrorMsg.setForeground(new java.awt.Color(255, 0, 0));
+        lblErrorMsg.setText(getErrorMessage());
 
-        javax.swing.GroupLayout pnlErrorLayout = new javax.swing.GroupLayout(pnlError);
-        pnlError.setLayout(pnlErrorLayout);
-        pnlErrorLayout.setHorizontalGroup(
-            pnlErrorLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(lblError, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+        javax.swing.GroupLayout pnlErrorExtLayout = new javax.swing.GroupLayout(pnlErrorExt);
+        pnlErrorExt.setLayout(pnlErrorExtLayout);
+        pnlErrorExtLayout.setHorizontalGroup(
+            pnlErrorExtLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(lblErrorMsg, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
-        pnlErrorLayout.setVerticalGroup(
-            pnlErrorLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, pnlErrorLayout.createSequentialGroup()
+        pnlErrorExtLayout.setVerticalGroup(
+            pnlErrorExtLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, pnlErrorExtLayout.createSequentialGroup()
                 .addGap(20, 20, 20)
-                .addComponent(lblError, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addComponent(lblErrorMsg, javax.swing.GroupLayout.PREFERRED_SIZE, 31, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
@@ -104,7 +145,7 @@ public class LoginView extends javax.swing.JFrame {
                                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                                     .addComponent(cmbServer, 0, 209, Short.MAX_VALUE)
                                     .addComponent(txfUsername)))
-                            .addComponent(pnlError, javax.swing.GroupLayout.DEFAULT_SIZE, 310, Short.MAX_VALUE))))
+                            .addComponent(pnlErrorExt, javax.swing.GroupLayout.DEFAULT_SIZE, 310, Short.MAX_VALUE))))
                 .addGap(45, 45, 45))
         );
         layout.setVerticalGroup(
@@ -121,7 +162,7 @@ public class LoginView extends javax.swing.JFrame {
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(btnJoin)
                 .addGap(0, 0, 0)
-                .addComponent(pnlError, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(pnlErrorExt, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap(26, Short.MAX_VALUE))
         );
 
@@ -129,39 +170,26 @@ public class LoginView extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnJoinActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnJoinActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_btnJoinActionPerformed
-
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String args[]) {
-        /* Set the System look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
         try {
-            javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
-        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(LoginView.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+            client.connect(cmbServer.getSelectedIndex());
+            client.join(roomname, username, procMsg, null);
+            controller.setUsername(txfUsername.getText());
+            controller.setRoomname(config.getDefaultRoomname());
+            controller.setServerId(cmbServer.getSelectedIndex());
+            controller.switchView(GUIView.CHAT);
         }
-        //</editor-fold>
-        //</editor-fold>
-        
-        /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new LoginView(null).setVisible(true);
-                
-            }
-        });
-    }
-
+        catch (TerminateClientException tce) {
+            controller.terminateClient(tce);
+        }
+    }//GEN-LAST:event_btnJoinActionPerformed
+    
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnJoin;
     private javax.swing.JComboBox cmbServer;
-    private javax.swing.JLabel lblError;
+    private javax.swing.JLabel lblErrorMsg;
     private javax.swing.JLabel lblServer;
     private javax.swing.JLabel lblUsername;
-    private javax.swing.JPanel pnlError;
+    private javax.swing.JPanel pnlErrorExt;
     private javax.swing.JTextField txfUsername;
     // End of variables declaration//GEN-END:variables
 }

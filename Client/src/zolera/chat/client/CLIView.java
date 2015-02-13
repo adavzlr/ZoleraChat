@@ -51,9 +51,9 @@ public class CLIView {
 			selectServer();
 			selectName();
 			
-			client.prepare(procMsg, procLogMsg);
+			client.prepare();
 			client.connect(serverId);
-			client.join(roomname, username);
+			client.join(roomname, username, procMsg, procLogMsg);
 			serviceLoop();
 		}
 		catch (TerminateClientException tce) {

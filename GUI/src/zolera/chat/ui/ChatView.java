@@ -5,20 +5,112 @@
  */
 package zolera.chat.ui;
 
+import javax.swing.text.*;
+import zolera.chat.client.ClientModel;
+import zolera.chat.client.ProcessMessagesDelegate;
+import zolera.chat.client.TerminateClientException;
+import zolera.chat.infrastructure.ChatMessage;
+import zolera.chat.infrastructure.ServerConfiguration;
+
 /**
  *
  * @author ortiz
  */
 public class ChatView extends javax.swing.JFrame {
+    
+    private SimpleAttributeSet styleSysMsg;
+    private SimpleAttributeSet style
+    private ServerConfiguration config;
+    private GUIView controller;
+    private ClientModel client;
+    
+    private ProcessMessagesDelegate procMsg;
+    private ProcessMessagesDelegate procLogMsg;
+    private String lastMsgUser;
 
     /**
      * Creates new form ChatFrame
+     * @param control
      */
-    public ChatView() {
+    public ChatView(GUIView control) {
+        if (control == null)
+            throw new IllegalArgumentException("Expecting a controller");
+        
+        config     = ServerConfiguration.getGlobal();
+        controller = control;
+        client     = controller.getClient();
+        
+        procMsg = new ProcessMessagesDelegate() {
+            @Override
+            public void process(ChatMessage[] batch) {
+                processMessages(batch);
+            }
+        };
+        procLogMsg = new ProcessMessagesDelegate() {
+            @Override
+            public void process(ChatMessage[] batch) {
+                processLogMessages(batch);
+            }
+        };
+        lastMsgUser = null;
+        
         initComponents();
         txfMessage.requestFocus();
     }
+    
+    
+    
+    private String getStatusBarInfo() {
+        return client.getUsername() + " @ " + client.getRoomname() + " (" + client.getMessageCount() + " messages)";
+    }
+    
+    private void appendToLogPane(String text) {
+        txpLog.getStyledDocument();
+    }
+    
+    
+    
+    private void processMessages(ChatMessage[] batch, String stylename) {
+        try {
+            StyledDocument doc = txpLog.getStyledDocument();
+            Style style = (stylename != null) ? doc.getStyle(stylename) : null;
+                
+            for (int m = 0; m < batch.length; m++) {
+                ChatMessage msg    = batch[m];
+                String  sender     = msg.getSenderName();
+                String  text       = msg.getMessageText();
+                boolean sysmsg     = sender.equals(config.getSystemMessagesUsername());
+                
 
+                // print sender header
+                if (sysmsg)
+                    lastMsgUser = null;
+                else if (!sender.equals(lastMsgUser)) {
+                    lastMsgUser = sender;
+                    doc.insertString(doc.getLength(), sender + ":\n", style);
+                }
+
+                // print system header
+                if (sysmsg) {
+                    style = doc.getStyle("italic");
+                    doc.insertString(doc.getLength(), ">>>", style);
+                }
+
+                // print message
+                doc.insertString(doc.getLength(), "\t" + text + "\n", style);
+            }
+        }
+        catch (BadLocationException ble) {
+            controller.terminateClient(new TerminateClientException("Invalid styled document location", ble));
+        }
+    }
+    
+    private void processLogMessages(ChatMessage[] batch) {
+        processMessages
+    }
+    
+    
+    
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -28,23 +120,26 @@ public class ChatView extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
-        scpLogContainer = new javax.swing.JScrollPane();
-        txaLog = new javax.swing.JTextArea();
+        scpLogScroll = new javax.swing.JScrollPane();
+        txpLog = new javax.swing.JTextPane();
+        pnlSendBar = new javax.swing.JPanel();
         txfMessage = new javax.swing.JTextField();
         btnSend = new javax.swing.JButton();
+        pnlStatusBar = new javax.swing.JPanel();
+        lblStatus = new javax.swing.JLabel();
 
-        setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
-        setTitle("Default");
+        setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
+        setTitle("ZoleraChat");
         setLocationByPlatform(true);
         setMinimumSize(new java.awt.Dimension(400, 500));
-        setPreferredSize(getMinimumSize());
+        addWindowListener(new java.awt.event.WindowAdapter() {
+            public void windowClosed(java.awt.event.WindowEvent evt) {
+                formWindowClosed(evt);
+            }
+        });
 
-        txaLog.setEditable(false);
-        txaLog.setColumns(20);
-        txaLog.setLineWrap(true);
-        txaLog.setRows(5);
-        txaLog.setWrapStyleWord(true);
-        scpLogContainer.setViewportView(txaLog);
+        txpLog.setEditable(false);
+        scpLogScroll.setViewportView(txpLog);
 
         txfMessage.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -59,24 +154,55 @@ public class ChatView extends javax.swing.JFrame {
             }
         });
 
-        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
-        getContentPane().setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(scpLogContainer, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE)
-            .addGroup(layout.createSequentialGroup()
+        javax.swing.GroupLayout pnlSendBarLayout = new javax.swing.GroupLayout(pnlSendBar);
+        pnlSendBar.setLayout(pnlSendBarLayout);
+        pnlSendBarLayout.setHorizontalGroup(
+            pnlSendBarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, pnlSendBarLayout.createSequentialGroup()
                 .addComponent(txfMessage)
                 .addGap(0, 0, 0)
                 .addComponent(btnSend, javax.swing.GroupLayout.PREFERRED_SIZE, 114, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
+        pnlSendBarLayout.setVerticalGroup(
+            pnlSendBarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(btnSend, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(txfMessage, javax.swing.GroupLayout.PREFERRED_SIZE, 29, javax.swing.GroupLayout.PREFERRED_SIZE)
+        );
+
+        pnlStatusBar.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.LOWERED));
+        pnlStatusBar.setPreferredSize(new java.awt.Dimension(0, 20));
+
+        lblStatus.setText(getStatusBarInfo());
+        lblStatus.setFocusable(false);
+
+        javax.swing.GroupLayout pnlStatusBarLayout = new javax.swing.GroupLayout(pnlStatusBar);
+        pnlStatusBar.setLayout(pnlStatusBarLayout);
+        pnlStatusBarLayout.setHorizontalGroup(
+            pnlStatusBarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(lblStatus, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+        );
+        pnlStatusBarLayout.setVerticalGroup(
+            pnlStatusBarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(lblStatus)
+        );
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
+        getContentPane().setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(scpLogScroll, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE)
+            .addComponent(pnlSendBar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addComponent(pnlStatusBar, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE)
+        );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addComponent(scpLogContainer, javax.swing.GroupLayout.DEFAULT_SIZE, 471, Short.MAX_VALUE)
+                .addComponent(scpLogScroll, javax.swing.GroupLayout.DEFAULT_SIZE, 451, Short.MAX_VALUE)
                 .addGap(0, 0, 0)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                    .addComponent(btnSend, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                    .addComponent(txfMessage)))
+                .addComponent(pnlSendBar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0)
+                .addComponent(pnlStatusBar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0))
         );
 
         getAccessibleContext().setAccessibleName("");
@@ -87,40 +213,32 @@ public class ChatView extends javax.swing.JFrame {
     private void btnSendActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnSendActionPerformed
         String message = txfMessage.getText();
         
-        if (message.equals(""))
-            return;
+        if (!message.equals("")) {
+            try {
+                StyledDocument doc = txpLog.getStyledDocument();
+                doc.insertString(doc.getLength(), message + "\n", null);
+            }
+            catch(BadLocationException ble) {
+                ble.printStackTrace();
+            }
         
-        txaLog.append(message + "\n");
+            txfMessage.setText(null);
+        }
         
-        txfMessage.setText(null);
         txfMessage.requestFocus();
     }//GEN-LAST:event_btnSendActionPerformed
 
-    /**
-     * @param args the command line arguments
-     */
-    public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        try {
-            javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
-        } catch (ClassNotFoundException | InstantiationException | IllegalAccessException | javax.swing.UnsupportedLookAndFeelException ex) {
-            java.util.logging.Logger.getLogger(LoginView.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        //</editor-fold>
-
-        /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new ChatView().setVisible(true);
-            }
-        });
-    }
-
+    private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
+        controller.switchView(GUIView.LOGIN);
+    }//GEN-LAST:event_formWindowClosed
+    
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnSend;
-    private javax.swing.JScrollPane scpLogContainer;
-    private javax.swing.JTextArea txaLog;
+    private javax.swing.JLabel lblStatus;
+    private javax.swing.JPanel pnlSendBar;
+    private javax.swing.JPanel pnlStatusBar;
+    private javax.swing.JScrollPane scpLogScroll;
     private javax.swing.JTextField txfMessage;
+    private javax.swing.JTextPane txpLog;
     // End of variables declaration//GEN-END:variables
 }
