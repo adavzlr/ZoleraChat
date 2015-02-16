@@ -78,9 +78,13 @@ public class ChatView extends javax.swing.JFrame {
         return style;
     }
     
+    private static void addSelfMsgStyle(SimpleAttributeSet sender, SimpleAttributeSet text) {
+        StyleConstants.setForeground(sender, Color.RED);
+    }
+    
     private static void addSysMsgStyle(SimpleAttributeSet sender, SimpleAttributeSet text) {
         StyleConstants.setItalic(text, true);
-        StyleConstants.setForeground(text, Color.GREEN);
+        StyleConstants.setForeground(text, new Color(0, 153, 0)); // forest green
     }
     
     private static void addHistoricStyle(SimpleAttributeSet sender, SimpleAttributeSet text) {
@@ -124,6 +128,8 @@ public class ChatView extends javax.swing.JFrame {
             SimpleAttributeSet textStyle   = getTextStyle();
             
             // prepare styles
+            if (sender.equals(client.getUsername()))
+                addSelfMsgStyle(senderStyle, textStyle);
             if (sysmsg)
                 addSysMsgStyle(senderStyle, textStyle);
             if (historic)
@@ -157,27 +163,56 @@ public class ChatView extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        pnlStatusBar = new javax.swing.JPanel();
+        lblStatus = new javax.swing.JLabel();
+        sppSplit = new javax.swing.JSplitPane();
+        pnlMessages = new javax.swing.JPanel();
         scpLogScroll = new javax.swing.JScrollPane();
         txpLog = new javax.swing.JTextPane();
         pnlSendBar = new javax.swing.JPanel();
         txfMessage = new javax.swing.JTextField();
         btnSend = new javax.swing.JButton();
-        pnlStatusBar = new javax.swing.JPanel();
-        lblStatus = new javax.swing.JLabel();
+        scpUsersScroll = new javax.swing.JScrollPane();
+        lstUsers = new javax.swing.JList();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("ZoleraChat");
         setLocationByPlatform(true);
-        setMinimumSize(new java.awt.Dimension(400, 500));
+        setMinimumSize(new java.awt.Dimension(600, 650));
+        setPreferredSize(new java.awt.Dimension(600, 650));
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosed(java.awt.event.WindowEvent evt) {
                 formWindowClosed(evt);
             }
         });
 
+        pnlStatusBar.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.LOWERED));
+        pnlStatusBar.setPreferredSize(new java.awt.Dimension(0, 20));
+
+        lblStatus.setText("This text should not be displayed");
+        lblStatus.setFocusable(false);
+        lblStatus.setPreferredSize(new java.awt.Dimension(0, 20));
+
+        javax.swing.GroupLayout pnlStatusBarLayout = new javax.swing.GroupLayout(pnlStatusBar);
+        pnlStatusBar.setLayout(pnlStatusBarLayout);
+        pnlStatusBarLayout.setHorizontalGroup(
+            pnlStatusBarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(lblStatus, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
+        );
+        pnlStatusBarLayout.setVerticalGroup(
+            pnlStatusBarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(lblStatus, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+        );
+
+        sppSplit.setDividerLocation(400);
+        sppSplit.setResizeWeight(1.0);
+
+        pnlMessages.setMinimumSize(new java.awt.Dimension(400, 100));
+
         txpLog.setEditable(false);
         scpLogScroll.setViewportView(txpLog);
 
+        txfMessage.setPreferredSize(new java.awt.Dimension(6, 29));
         txfMessage.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 btnSendActionPerformed(evt);
@@ -185,6 +220,7 @@ public class ChatView extends javax.swing.JFrame {
         });
 
         btnSend.setText("Send");
+        btnSend.setFocusable(false);
         btnSend.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 btnSendActionPerformed(evt);
@@ -196,46 +232,57 @@ public class ChatView extends javax.swing.JFrame {
         pnlSendBarLayout.setHorizontalGroup(
             pnlSendBarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, pnlSendBarLayout.createSequentialGroup()
-                .addComponent(txfMessage)
+                .addComponent(txfMessage, javax.swing.GroupLayout.DEFAULT_SIZE, 300, Short.MAX_VALUE)
                 .addGap(0, 0, 0)
-                .addComponent(btnSend, javax.swing.GroupLayout.PREFERRED_SIZE, 114, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addComponent(btnSend, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
         pnlSendBarLayout.setVerticalGroup(
             pnlSendBarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(btnSend, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(txfMessage, javax.swing.GroupLayout.PREFERRED_SIZE, 29, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addComponent(btnSend)
+            .addComponent(txfMessage, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         );
 
-        pnlStatusBar.setBorder(javax.swing.BorderFactory.createBevelBorder(javax.swing.border.BevelBorder.LOWERED));
-        pnlStatusBar.setPreferredSize(new java.awt.Dimension(0, 20));
-
-        lblStatus.setFocusable(false);
-
-        javax.swing.GroupLayout pnlStatusBarLayout = new javax.swing.GroupLayout(pnlStatusBar);
-        pnlStatusBar.setLayout(pnlStatusBarLayout);
-        pnlStatusBarLayout.setHorizontalGroup(
-            pnlStatusBarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(lblStatus, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+        javax.swing.GroupLayout pnlMessagesLayout = new javax.swing.GroupLayout(pnlMessages);
+        pnlMessages.setLayout(pnlMessagesLayout);
+        pnlMessagesLayout.setHorizontalGroup(
+            pnlMessagesLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(scpLogScroll)
+            .addComponent(pnlSendBar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
-        pnlStatusBarLayout.setVerticalGroup(
-            pnlStatusBarLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(lblStatus)
+        pnlMessagesLayout.setVerticalGroup(
+            pnlMessagesLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, pnlMessagesLayout.createSequentialGroup()
+                .addComponent(scpLogScroll, javax.swing.GroupLayout.DEFAULT_SIZE, 549, Short.MAX_VALUE)
+                .addGap(0, 0, 0)
+                .addComponent(pnlSendBar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
+
+        sppSplit.setLeftComponent(pnlMessages);
+
+        scpUsersScroll.setMinimumSize(new java.awt.Dimension(200, 100));
+
+        lstUsers.setModel(new javax.swing.AbstractListModel() {
+            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
+            public int getSize() { return strings.length; }
+            public Object getElementAt(int i) { return strings[i]; }
+        });
+        lstUsers.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        lstUsers.setFocusable(false);
+        scpUsersScroll.setViewportView(lstUsers);
+
+        sppSplit.setRightComponent(scpUsersScroll);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(scpLogScroll, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE)
-            .addComponent(pnlSendBar, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-            .addComponent(pnlStatusBar, javax.swing.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE)
+            .addComponent(pnlStatusBar, javax.swing.GroupLayout.DEFAULT_SIZE, 607, Short.MAX_VALUE)
+            .addComponent(sppSplit)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addComponent(scpLogScroll, javax.swing.GroupLayout.DEFAULT_SIZE, 451, Short.MAX_VALUE)
-                .addGap(0, 0, 0)
-                .addComponent(pnlSendBar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(sppSplit)
                 .addGap(0, 0, 0)
                 .addComponent(pnlStatusBar, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(0, 0, 0))
@@ -271,9 +318,13 @@ public class ChatView extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnSend;
     private javax.swing.JLabel lblStatus;
+    private javax.swing.JList lstUsers;
+    private javax.swing.JPanel pnlMessages;
     private javax.swing.JPanel pnlSendBar;
     private javax.swing.JPanel pnlStatusBar;
     private javax.swing.JScrollPane scpLogScroll;
+    private javax.swing.JScrollPane scpUsersScroll;
+    private javax.swing.JSplitPane sppSplit;
     private javax.swing.JTextField txfMessage;
     private javax.swing.JTextPane txpLog;
     // End of variables declaration//GEN-END:variables
