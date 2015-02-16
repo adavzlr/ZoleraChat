@@ -18,24 +18,27 @@ import zolera.chat.infrastructure.ServerConfiguration;
 public class LoginView extends javax.swing.JFrame {
     
     private ServerConfiguration config;
-    private GUIView controller;
     private ClientModel client;
-    
-    private String errorMessage;
+    private Exception   exception;
     
     /**
      * Creates new form LoginFrame
      * @param control
      */
-    public LoginView(GUIView control) {
-        if (control == null)
+    public LoginView(ClientModel model, Exception ex) {
+        if (model == null)
             throw new IllegalArgumentException("Expecting a controller");
         
         config     = ServerConfiguration.getGlobal();
-        controller = control;
-        client     = controller.getClient();
+        client     = model;
+        exception  = ex;
         
-        errorMessage = null;
+        try {
+            client.prepare();
+        }
+        catch (TerminateClientException tce) {
+            GUIView.terminateClient(this, client, tce, false);
+        }
         
         initComponents();
     }
@@ -43,18 +46,10 @@ public class LoginView extends javax.swing.JFrame {
     
     
     private String getErrorMessage() {
-        if (errorMessage != null)
-            return errorMessage;
-        
-        Exception ex = controller.getPendingException();
-        if (ex == null)
-            errorMessage = "";
-        else {
-            controller.setPendingException(null);
-            errorMessage = "Error: " + ex.getMessage();
-        }
-        
-        return errorMessage;
+        if (exception == null)
+            return "";
+        else
+            return exception.getMessage();
     }
     
     private ComboBoxModel getServerAddressesModel() {
@@ -96,6 +91,12 @@ public class LoginView extends javax.swing.JFrame {
 
         lblServer.setLabelFor(cmbServer);
         lblServer.setText("Server");
+
+        txfUsername.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnJoinActionPerformed(evt);
+            }
+        });
 
         cmbServer.setModel(getServerAddressesModel());
 
@@ -170,16 +171,23 @@ public class LoginView extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnJoinActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnJoinActionPerformed
+        int    server = cmbServer.getSelectedIndex();
+        String room   = config.getDefaultRoomname();
+        String user   = txfUsername.getText();
+        
+        if (!user.matches(config.getUsernamePattern()))
+            return;
+        if (!room.matches(config.getRoomnamePattern()))
+            return;
+        if (server < 0 || server > config.getRegistryAddressesListLength())
+            return;
+        
         try {
-            client.connect(cmbServer.getSelectedIndex());
-            client.join(roomname, username, procMsg, null);
-            controller.setUsername(txfUsername.getText());
-            controller.setRoomname(config.getDefaultRoomname());
-            controller.setServerId(cmbServer.getSelectedIndex());
-            controller.switchView(GUIView.CHAT);
+            client.connect(server);
+            GUIView.switchView(this, new ChatView(client, room, user));
         }
         catch (TerminateClientException tce) {
-            controller.terminateClient(tce);
+            GUIView.terminateClient(this, client, tce, false);
         }
     }//GEN-LAST:event_btnJoinActionPerformed
     

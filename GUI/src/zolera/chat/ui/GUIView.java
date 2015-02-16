@@ -15,156 +15,33 @@ import zolera.chat.infrastructure.*;
  */
 public class GUIView {
     
-    public static final int LOGIN = 1;
-    public static final int CHAT  = 2;
-    public static final int ERROR = 3;
-    private JFrame currentView;
-    
-    private Exception pendingException;
-    private int       serverId;
-    private String    username;
-    private String    roomname;
-    
-    private ClientModel client;
-    private ServerConfiguration config;
-    private ProcessMessagesDelegate procMsg;
-    private ProcessMessagesDelegate procLogMsg;
-    
-    public GUIView() {
-        currentView = null;
+    // We don't expect instantiation of this class
+    private GUIView() {}
         
-        pendingException = null;
-        serverId         = -1;
-        username         = null;
-        roomname         = null;
-        
-        client     = new ClientModel();
-        config     = ServerConfiguration.getGlobal();
-        procMsg    = null;
-        procLogMsg = null;
-    }
-    
-    public ClientModel getClient() {
-        return client;
-    }
-    
-    public Exception getPendingException() {
-        return pendingException;
-    }
-    
-    public void setPendingException(Exception ex) {
-        pendingException = ex;
-    }
-    
-    /*
-    public void setServerId(int id)
-    throws TerminateClientException {
-        if (id < 0 || id > config.getRegistryAddressesListLength())
-            throw new TerminateClientException("Invalid server id (" + id + ")");
-        
-        serverId = id;
-    }
-    
-    public int getServerId() {
-        return serverId;
-    }
-    
-    public void setUsername(String name)
-    throws TerminateClientException {
-        if (name == null || !name.matches(config.getUsernamePattern()))
-            throw new TerminateClientException("Invalid username '" + name + "'");
-        
-        username = name;
-    }
-    
-    public String getUsername() {
-        return username;
-    }
-    
-    public void setRoomname(String name)
-    throws TerminateClientException {
-        if (name == null || !name.matches(config.getRoomnamePattern()))
-            throw new TerminateClientException("Invalid roomname '" + name + "'");
-        
-        roomname = name;
-    }
-    
-    public String getRoomname() {
-        return roomname;
-    }
-    
-    public void setDelegates(ProcessMessagesDelegate msgDelegate, ProcessMessagesDelegate logDelegate)
-    throws TerminateClientException {
-        if (procMsg == null || logDelegate == null)
-            throw new TerminateClientException("Invalid delegates (msg=" + procMsg + ", log=" + logDelegate + ")");
-        
-        procMsg    = msgDelegate;
-        procLogMsg = logDelegate;
-    }
-    */
-    
-    
-    
-    /*
-    public void switchView(int viewId) {
-        // dispose previous view
-        if (currentView != null)
-            currentView.dispose();
-        
-        // create new view
-        switch(viewId) {
-        case LOGIN:
-            currentView = new LoginView(this);
-            break;
-        case CHAT:
-            currentView = new ChatView(this);
-            break;
-        case ERROR:
-        default:
-            if (viewId != ERROR)
-                setPendingException(new TerminateClientException("Invalid view id (" + viewId + ")"));
-            
-            if (DebuggingTools.DEBUG_MODE)
-                currentView = new ErrorView(this);
-            else
-                currentView = new LoginView(this);
-            
-            break;
-        }
+    public static void switchView(JFrame fromView, JFrame toView) {
+        if (fromView != null)
+            fromView.dispose();
         
         // display new view
         java.awt.EventQueue.invokeLater(new Runnable() {
             @Override
             public void run() {
-                currentView.setVisible(true);
-            }
-        });
-    }
-    */
-    
-    public void switchView(JFrame view) {
-        if (currentView != null)
-            currentView.dispose();
-        
-        // display new view
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                currentView.setVisible(true);
+                toView.setVisible(true);
             }
         });
     }
     
-    public void terminateClient(TerminateClientException tce) {
+    public static void terminateClient(JFrame fromView, ClientModel client, Exception ex, boolean showConsole) {
         JFrame errorView;
-        setPendingException(tce);
         
-        if (DebuggingTools.DEBUG_MODE)
-            errorView = new ErrorView(this);
+        client.terminate();
+        
+        if (showConsole || DebuggingTools.DEBUG_MODE)
+            errorView = new ErrorView(client, ex);
         else
-            errorView = new LoginView(this);
+            errorView = new LoginView(client, ex);
         
-        switchView(errorView);
+        switchView(fromView, errorView);
     }
     
     
@@ -183,6 +60,7 @@ public class GUIView {
         //</editor-fold>
         
         GUIView controller = new GUIView();
-        controller.switchView(new LoginView(controller));
+        ClientModel client = new ClientModel();
+        controller.switchView(null, new LoginView(client, null));
     }
 }

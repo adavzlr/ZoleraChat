@@ -1,8 +1,11 @@
 package zolera.chat.client;
 
+import java.rmi.NoSuchObjectException;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
+import java.rmi.ServerException;
 import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
 
 import zolera.chat.infrastructure.*;
@@ -71,10 +74,34 @@ implements RemoteClientModel {
 		roomRef       = null;
 		
 		try {
-			clientRef     = (RemoteClientModel) UnicastRemoteObject.exportObject(this, 0);
+			clientRef = (RemoteClientModel) UnicastRemoteObject.exportObject(this, 0);
 		}
 		catch (RemoteException re) {
-			throw getRMIException(re);
+			terminate();
+			throw new TerminateClientException("Failed to open the client for incoming connections", re);
+		}
+	}
+	
+	public void terminate() {
+		if (clientRef == null)
+			return;
+		
+		try {
+			UnicastRemoteObject.unexportObject(this, true);
+		}
+		catch (NoSuchObjectException nsoe) {
+			throw new IllegalStateException("Failedto unexport the client", nsoe);
+		}
+		finally {
+			clientRef     = null;
+			serverId      = -1;
+			serverRef     = null;
+			username      = null;
+			roomname      = null;
+			chatlog       = null;
+			dlgMsgProc    = null;
+			dlgLogMsgProc = null;
+			roomRef       = null;
 		}
 	}
 	
@@ -92,25 +119,46 @@ implements RemoteClientModel {
 		dlgLogMsgProc = null;
 		roomRef       = null;
 		
+		String host;
+		int    port;
 		try {
 			// Parse server address
-			String   serverAddress = config.getRegistryAddress(id);
-			String[] serverInfo    = serverAddress.split(":");
-			String   serverHost    = serverInfo[0];
-			int      serverPort    = Integer.parseInt(serverInfo[1]);
+			String   address    = config.getRegistryAddress(id);
+			String[] components = address.split(":");
 			
-			// Look for the server reference in the registry at the given address
-			serverId  = id;
-			serverRef = (RemoteServerModel) LocateRegistry.getRegistry(serverHost, serverPort).lookup(config.getServerRegisteredName());
+			serverId = id;
+			host = components[0];
+			port = Integer.parseInt(components[1]);
 		}
 		catch (NumberFormatException | IndexOutOfBoundsException ex) {
-			throw new TerminateClientException("Error parsing server address", ex);
+			terminate();
+			throw new IllegalStateException("Error parsing server address", ex);
+		}
+		
+		Registry registry;
+		try {
+			// Get the registry of the server
+			registry = LocateRegistry.getRegistry(host, port);
 		}
 		catch (RemoteException re) {
-			throw getRMIException(re);
+			terminate();
+			throw new TerminateClientException("Cannot access the registry", re);
+		}
+		
+		try {
+			serverRef = (RemoteServerModel) registry.lookup(config.getServerRegisteredName());
+		}
+		catch (ServerException se) {
+			terminate();
+			throw new TerminateClientException("Access to registry denied", se);
+		}
+		catch (RemoteException re) {
+			terminate();
+			throw new TerminateClientException("Communication with the registry failed");
 		}
 		catch (NotBoundException nbe) {
-			throw new TerminateClientException("Server not bound to registry");
+			terminate();
+			throw new TerminateClientException("Server not found on the registry");
 		}
 	}
 	
@@ -130,18 +178,31 @@ implements RemoteClientModel {
 			
 			if (roomRef == null)
 				throw getValidityCheckException("room reference request");
-			
-			// join the chat room
-			int retcode = roomRef.join(user, clientRef);
-			if (retcode == RemoteRoomModel.VALIDITY_CHECK_FAILED)
-				throw getValidityCheckException("room join request");
-			else if (retcode == RemoteRoomModel.ROOM_IS_FULL)
-				throw new TerminateClientException("Room is full");
-			else if (retcode != RemoteRoomModel.SUCCESSFUL_JOIN)
-				throw getServerResponseException(retcode);
 		}
 		catch(RemoteException re) {
-			throw getRMIException(re);
+			terminate();
+			throw new TerminateClientException("Failed to retrieve a reference to room '" + roomname + "'", re);
+		}
+		
+		try {
+			// join the chat room
+			int retcode = roomRef.join(user, clientRef);
+			if (retcode == RemoteRoomModel.VALIDITY_CHECK_FAILED) {
+				// terminate() only required for TerminateClientExceptions
+				throw getValidityCheckException("room join request");
+			}
+			else if (retcode == RemoteRoomModel.ROOM_IS_FULL) {
+				terminate();
+				throw new TerminateClientException("Room '" + roomname + "' is full");
+			}
+			else if (retcode != RemoteRoomModel.SUCCESSFUL_JOIN) {
+				terminate();
+				throw getServerResponseException(retcode);
+			}
+		}
+		catch(RemoteException re) {
+			terminate();
+			throw new TerminateClientException("Failed to join the room", re);
 		}
 	}
 	
@@ -157,22 +218,23 @@ implements RemoteClientModel {
 			
 			// send message to chat room
 			int retcode = roomRef.submit(clientRef, message);
-			if (retcode == RemoteRoomModel.VALIDITY_CHECK_FAILED)
+			if (retcode == RemoteRoomModel.VALIDITY_CHECK_FAILED) {
+				// terminate() only required for TerminateClientExceptions
 				throw getValidityCheckException("message submission");
-			else if (retcode != RemoteRoomModel.MESSAGE_SUBMITTED)
+			}
+			else if (retcode != RemoteRoomModel.MESSAGE_SUBMITTED) {
+				terminate();
 				throw getServerResponseException(retcode);
+			}
 		}
 		catch(RemoteException re) {
-			throw getRMIException(re);
+			terminate();
+			throw new TerminateClientException("Failed to send message", re);
 		}
 	}
 	
-	private TerminateClientException getRMIException(RemoteException re) {
-		return new TerminateClientException("Failure on RMI layer", re);
-	}
-	
-	private TerminateClientException getValidityCheckException(String op) {
-		return new TerminateClientException("Validity check of '" + op + "' failed");
+	private IllegalArgumentException getValidityCheckException(String op) {
+		return new IllegalArgumentException("Validity check of '" + op + "' failed");
 	}
 	
 	private TerminateClientException getServerResponseException(int retcode) {
@@ -184,6 +246,10 @@ implements RemoteClientModel {
 	@Override
 	public synchronized void receive(ChatMessage[] batch)
 	throws RemoteException {
+		// Need to be prepared, connected and inside a room
+		if (clientRef == null || serverRef == null || roomRef == null)
+			throw new IllegalStateException("Cannot receive messages until prepared, connected to a server and inside a room");
+		
 		chatlog.addMessageBatch(batch);
 		if (dlgMsgProc != null)
 			dlgMsgProc.process(batch);
@@ -192,6 +258,10 @@ implements RemoteClientModel {
 	@Override
 	public synchronized void chatlog(ChatMessage[] batch)
 	throws RemoteException {
+		// Need to be prepared, connected and inside a room
+		if (clientRef == null || serverRef == null || roomRef == null)
+			throw new IllegalStateException("Cannot receive messages until prepared, connected to a server and inside a room");
+		
 		chatlog.addMessageBatch(batch);
 		if (dlgLogMsgProc != null)
 			dlgLogMsgProc.process(batch);

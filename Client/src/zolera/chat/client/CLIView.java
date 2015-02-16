@@ -121,8 +121,6 @@ public class CLIView {
 	
 	
 	
-	
-	
 	private void printMessages(ChatMessage[] batch) {
 		for (int m = 0; m < batch.length; m++) {
 			ChatMessage msg = batch[m];

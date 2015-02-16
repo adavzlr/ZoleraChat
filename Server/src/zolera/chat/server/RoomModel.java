@@ -112,13 +112,10 @@ implements RemoteRoomModel, Runnable {
 				sendMessageBatchToClient(handle, msg);
 			}
 			catch (DeadClientException dce) {
-				if (DebuggingTools.DEBUG_MODE)
-					dce.printStackTrace();
-				else
-					System.out.println("\nError: " + dce.getMessage());
+				System.out.println("\n" + dce.getMessage());
 				
 				// Remove client when we determine it is unresponsive
-				addMessage(new ChatMessage(config.getSystemMessagesUsername(),"User " + handle.getUsername() + " left the room"));
+				addMessage(new ChatMessage(config.getSystemMessagesUsername(),"User '" + handle.getUsername() + "' left the room"));
 				iterator.remove();
 			}
 		}
@@ -131,6 +128,9 @@ implements RemoteRoomModel, Runnable {
 		}
 		catch (RemoteException re) {
 			throw getRemovingUserException(handle, "RMI layer", re);
+		}
+		catch (Exception e) {
+			throw getRemovingUserException(handle, "thrown exception on client code", e);
 		}
 	}
 	
@@ -157,13 +157,11 @@ implements RemoteRoomModel, Runnable {
 		return clients.size() >= maxCapacity;
 	}
 	
-	public synchronized boolean addClient(String clientName, RemoteClientModel clientRef) {
+	public synchronized ClientHandle addClient(String clientName, RemoteClientModel clientRef) {
+		ClientHandle handle = new ClientHandle(clientName, clientRef);
+		clients.put(clientRef, handle);
 		
-		
-		ClientHandle clientHandle = new ClientHandle(clientName, clientRef);
-		clients.put(clientRef, clientHandle);
-		
-		return true;
+		return handle;
 	}
 	
 	public synchronized ClientHandle getClientHandle(RemoteClientModel ref) {
@@ -200,9 +198,14 @@ implements RemoteRoomModel, Runnable {
 		
 		addClient(username, clientRef);
 		
-		// send all the messages on chat log to the new client
-		ChatMessage[] messages = chatlog.getAllMessages();
-		clientRef.chatlog(messages);
+		try {
+			// send all the messages on chat log to the new client
+			ChatMessage[] messages = chatlog.getAllMessages();
+			clientRef.chatlog(messages);
+		}
+		catch (Exception e) {
+			return RemoteRoomModel.ERROR_ON_CLIENT;
+		}
 		
 		// inform users of joining user
 		addMessage(new ChatMessage(config.getSystemMessagesUsername(), "User '" + username + "' joined the room"));

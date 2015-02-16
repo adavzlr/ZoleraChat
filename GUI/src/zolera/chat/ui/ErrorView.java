@@ -7,6 +7,7 @@ package zolera.chat.ui;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import zolera.chat.client.ClientModel;
 
 /**
  *
@@ -14,24 +15,25 @@ import java.io.StringWriter;
  */
 public class ErrorView extends javax.swing.JFrame {
     
-    private GUIView controller;
+    private ClientModel client;
+    private Exception   exception;
     
     /**
      * Creates new form ErrorView
      */
-    public ErrorView(GUIView control) {
-        controller = control;
+    public ErrorView(ClientModel model, Exception ex) {
+        client     = model;
+        exception  = ex;
+        
         initComponents();
     }
     
     public String getErrorInfo() {
-        Exception ex = controller.getPendingException();
-        
-        if (ex == null)
+        if (exception == null)
             return "";
         
         StringWriter output = new StringWriter();
-        controller.getPendingException().printStackTrace(new PrintWriter(output));
+        exception.printStackTrace(new PrintWriter(output));
         return output.toString();
     }
 
@@ -49,7 +51,7 @@ public class ErrorView extends javax.swing.JFrame {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
         setTitle("Error Console");
-        setMinimumSize(new java.awt.Dimension(600, 300));
+        setMinimumSize(new java.awt.Dimension(1200, 600));
         setPreferredSize(getMinimumSize());
         addWindowListener(new java.awt.event.WindowAdapter() {
             public void windowClosed(java.awt.event.WindowEvent evt) {
@@ -65,18 +67,18 @@ public class ErrorView extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(scpConsoleScroll, javax.swing.GroupLayout.DEFAULT_SIZE, 600, Short.MAX_VALUE)
+            .addComponent(scpConsoleScroll, javax.swing.GroupLayout.DEFAULT_SIZE, 1200, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(scpConsoleScroll, javax.swing.GroupLayout.DEFAULT_SIZE, 300, Short.MAX_VALUE)
+            .addComponent(scpConsoleScroll, javax.swing.GroupLayout.DEFAULT_SIZE, 600, Short.MAX_VALUE)
         );
 
         pack();
     }// </editor-fold>//GEN-END:initComponents
 
     private void formWindowClosed(java.awt.event.WindowEvent evt) {//GEN-FIRST:event_formWindowClosed
-        controller.switchView(new LoginView(controller));
+        GUIView.switchView(this, new LoginView(client, exception));
     }//GEN-LAST:event_formWindowClosed
     
     // Variables declaration - do not modify//GEN-BEGIN:variables
