@@ -19,6 +19,12 @@ implements RemoteRoomModel, Runnable {
 	private Thread             consumerThread;
 	
 	private RemoteRoomModel roomRef;
+	private int[] serverBootStatus;
+	private RemoteRoomModel [] remoteRooms;
+	
+	public static final int SERVER_UNKNOWN_STATUS     = 613;
+	public static final int SERVER_ONLINE             = 617;
+	public static final int SERVER_OFFLINE     = 619;
 	
 	public RoomModel(String name)
 	throws RemoteException {
@@ -249,5 +255,18 @@ implements RemoteRoomModel, Runnable {
 			return false;
 		
 		return true;
+	}
+	
+	public synchronized boolean registerServer(int serverId, RoomModel remoteRoom){
+		if(serverBootStatus[serverId] == SERVER_UNKNOWN_STATUS){
+			serverBootStatus[serverId] = SERVER_ONLINE;
+			remoteRooms[serverId] = remoteRoom;
+			return true;
+		}
+		else if(serverBootStatus[serverId] == SERVER_ONLINE){
+			return true;
+		}
+		else 
+			return false;
 	}
 }
