@@ -30,8 +30,8 @@ implements RemoteServerModel {
 		System.out.println("ZoleraChat Server started\n");
 		
 		try {
-			createDefaultRoom();
 			register();
+			createDefaultRoom();
 		}
 		catch (TerminateServerException tse) {
 			// gracefully terminate server when it hits an unrecoverable exception
@@ -115,9 +115,8 @@ implements RemoteServerModel {
 	public RemoteRoomModel reference(String roomname)
 	throws RemoteException {
 		if (!reference_verifyValidity(roomname))
-			return null;
-		
-		return defaultRoom.getReference();
+			return null;		
+		return (defaultRoom == null) ? null : defaultRoom.getReference();
 	}
 	
 	private boolean reference_verifyValidity(String roomname) {
@@ -130,8 +129,6 @@ implements RemoteServerModel {
 		
 		return true;
 	}
-	
-	
 	
 	public static void main(String args[]) {
 		int serverId = readServerId(System.in);
