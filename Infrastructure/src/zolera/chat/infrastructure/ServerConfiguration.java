@@ -16,20 +16,20 @@ public final class ServerConfiguration {
 		return getGlobal(null);
 	}
 	
-	private final String serverRegisteredName;
-	private final int    maxUsernameLength;
-	private final String usernamePattern;
-	private final int    maxRoomnameLength;
-	private final String roomnamePattern;
-	private final String clientTerminationString;
-	private final String defaultRoomname;
-	private final int    maxRoomCapacity;
-	private final int    initialChatLogCapacity;
-	private final int    initialMessagesPerClient;
-	private final long   sleepTimeRoomConsumerThreadMillis;
-	private final long   waitReadyTimeoutMillis;
-	private final String systemMessagesUsername;
-	private final String [] registryAddressesList;
+	private final String   serverRegisteredName;
+	private final int      maxUsernameLength;
+	private final String   usernamePattern;
+	private final int      maxRoomnameLength;
+	private final String   roomnamePattern;
+	private final String   clientTerminationString;
+	private final String   defaultRoomname;
+	private final int      maxRoomCapacity;
+	private final int      initialChatLogCapacity;
+	private final int      initialBroadcastCapacity;
+	private final long     sleepTimeRoomConsumerThreadMillis;
+	private final long     waitReadyTimeoutMillis;
+	private final String   systemMessagesUsername;
+	private final String[] registryAddressesList;
 	
 	private ServerConfiguration() {
 		this(0);
@@ -48,11 +48,11 @@ public final class ServerConfiguration {
 			defaultRoomname                   = "Default";
 			maxRoomCapacity                   = 10;
 			initialChatLogCapacity            = 100;
-			initialMessagesPerClient          = 5;
+			initialBroadcastCapacity          = 5 * maxRoomCapacity;
 			sleepTimeRoomConsumerThreadMillis = 100;
 			waitReadyTimeoutMillis            = 5_000;
 			systemMessagesUsername            = "ZoleraChatSys";
-			registryAddressesList                        = new String[]{
+			registryAddressesList             = new String[]{
 					              					"localhost:1099",
 					              					"localhost:1001",
 					              					"localhost:1002",
@@ -99,8 +99,8 @@ public final class ServerConfiguration {
 		return initialChatLogCapacity;
 	}
 	
-	public int getInitialMessagesPerClient() {
-		return initialMessagesPerClient;
+	public int getInitialBroadcastCapacity() {
+		return initialBroadcastCapacity;
 	}
 	
 	public long getSleepTimeRoomConsumerThreadMillis() {

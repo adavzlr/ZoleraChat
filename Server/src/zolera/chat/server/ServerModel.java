@@ -61,7 +61,7 @@ implements RemoteServerModel {
 	
 	private RoomModel createRoom(String name)
 	throws RemoteException {
-		RoomModel room = new RoomModel(name, config.getMaxRoomCapacity());
+		RoomModel room = new RoomModel(name);
 		room.startConsumerThread();
 		return room;
 	}
