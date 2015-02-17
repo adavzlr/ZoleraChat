@@ -15,4 +15,6 @@ extends Remote {
 	
 	public int submit(RemoteClientModel clientRef, ChatMessage msg)
 	throws RemoteException;
+	
+	public void setMaster(int masterId);
 }
