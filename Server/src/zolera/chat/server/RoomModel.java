@@ -1,6 +1,8 @@
 package zolera.chat.server;
 
 import java.rmi.*;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 import java.rmi.server.*;
 import java.util.*;
 
@@ -25,7 +27,7 @@ implements RemoteRoomModel, Runnable {
 	private int serverId;
 	private int masterId;
 	
-	public static final int SERVER_UNKNOWN_STATUS     = 613;
+	public static final int SERVER_UNKNOWN_STATUS     = 0;
 	public static final int SERVER_ONLINE             = 617;
 	public static final int SERVER_OFFLINE     = 619;
 	
@@ -43,6 +45,7 @@ implements RemoteRoomModel, Runnable {
 		this.serverId = serverId;
 		masterId = -1;
 		roomRef = (RemoteRoomModel) UnicastRemoteObject.exportObject(this, 0);
+		remoteRooms = new RemoteRoomModel[config.getRegistryAddressesListLength()];
 	}
 	
 	public synchronized RemoteRoomModel getReference() {
@@ -85,7 +88,10 @@ implements RemoteRoomModel, Runnable {
 					throw new InterruptedException("Interruption detected in service loop");
 				
 				synchronized(this) {
-					broadcastMessageBatchToClients();
+					if(masterId != -1)
+					{
+						broadcastMessageBatchToClients();
+					}
 				}
 			
 				consumerThreadSleep();
@@ -261,7 +267,9 @@ implements RemoteRoomModel, Runnable {
 		return true;
 	}
 	
-	public synchronized boolean registerRoom(int serverId, RemoteRoomModel remoteRoom){
+	public synchronized boolean registerRoom(int serverId, RemoteRoomModel remoteRoom)
+	throws RemoteException
+	{
 		remoteRooms[serverId] = remoteRoom;
 		
 		if(masterId != -1){
@@ -285,5 +293,85 @@ implements RemoteRoomModel, Runnable {
 	{
 		this.masterId = masterId;
 		serverBootStatus = new int [ServerConfiguration.getDefaultConfiguration().getRegistryAddressesListLength()];
+	}
+	
+	public void registerWithOthers() 
+	throws TerminateServerException{
+		serverBootStatus = new int[remoteRooms.length];
+		boolean amIMasterable = true;
+		for(int id = 0; id < remoteRooms.length; id++)
+		{
+			synchronized(this)
+			{
+				String host;
+				int port;
+				try {
+					// Parse server address
+					String   address    = config.getRegistryAddress(id);
+					String[] components = address.split(":");
+					
+					serverId = id;
+					host = components[0];
+					port = Integer.parseInt(components[1]);
+				}
+				catch (NumberFormatException | IndexOutOfBoundsException ex) {
+					throw new TerminateServerException("Error parsing server address", ex);
+				}
+				
+				Registry registry;
+				try {
+					// Get the registry of the server
+					registry = LocateRegistry.getRegistry(host, port);
+					RemoteServerModel serverRef = (RemoteServerModel) registry.lookup(config.getServerRegisteredName());
+					RemoteRoomModel remoteRoom = serverRef.reference(config.getDefaultRoomname());
+					if(!remoteRoom.registerRoom(id, roomRef))
+						amIMasterable = false;
+					remoteRooms[id] = remoteRoom;
+					serverBootStatus[id] = SERVER_ONLINE;
+				}
+				catch (NotBoundException | RemoteException e) {
+					System.err.println("Error: (" + roomname + ") ");
+					e.printStackTrace();
+					serverBootStatus[id] = SERVER_OFFLINE;
+					continue;
+				}
+			}
+		}
+		
+		if(amIMasterable){
+			synchronized(this){
+				for(int i = 0; i < serverBootStatus.length; i++){
+					if(serverBootStatus[i] == SERVER_ONLINE){
+						if(i == serverId){
+							becomeMaster(); // I AM THE SWORD MASTAAAAAA!!!!!!!!!!!!!
+						}
+						break;
+					}
+				}
+			}
+		}
+		
+		serverBootStatus = null;
+	}
+	
+	private synchronized void becomeMaster(){
+		masterId = serverId;
+		
+		for(int i = 0; i < remoteRooms.length; i++ ) {
+			if(remoteRooms[i] != null){
+				try {
+					remoteRooms[i].setMaster(serverId);
+				} catch (RemoteException e) {
+					System.err.println("Error: (" + roomname + ") ");
+					e.printStackTrace();
+					removeRoom(i);
+				}
+			}
+		}
+	}
+	
+	private synchronized void removeRoom(int roomId)
+	{
+		remoteRooms[roomId] = null;
 	}
 }

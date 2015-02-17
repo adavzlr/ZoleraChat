@@ -16,5 +16,9 @@ extends Remote {
 	public int submit(RemoteClientModel clientRef, ChatMessage msg)
 	throws RemoteException;
 	
-	public void setMaster(int masterId);
+	public void setMaster(int masterId)
+	throws RemoteException;
+	
+	public boolean registerRoom(int serverId, RemoteRoomModel remoteRoom)
+	throws RemoteException;
 }
