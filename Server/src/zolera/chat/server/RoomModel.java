@@ -261,7 +261,7 @@ implements RemoteRoomModel, Runnable {
 		return true;
 	}
 	
-	public synchronized boolean registerServer(int serverId, RemoteRoomModel remoteRoom){
+	public synchronized boolean registerRoom(int serverId, RemoteRoomModel remoteRoom){
 		remoteRooms[serverId] = remoteRoom;
 		
 		if(masterId != -1){
@@ -284,5 +284,6 @@ implements RemoteRoomModel, Runnable {
 	public void setMaster(int masterId)
 	{
 		this.masterId = masterId;
+		serverBootStatus = new int [ServerConfiguration.getDefaultConfiguration().getRegistryAddressesListLength()];
 	}
 }
