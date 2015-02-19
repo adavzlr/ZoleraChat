@@ -21,4 +21,10 @@ extends Remote {
 	
 	public void share(ChatMessage[] batch)
 	throws RemoteException;
+
+	public void setMaster(int masterId)
+	throws RemoteException;
+	
+	public boolean registerRoom(int serverId, RemoteRoomModel remoteRoom)
+	throws RemoteException;
 }

@@ -61,7 +61,7 @@ implements RemoteServerModel {
 	
 	private RoomModel createRoom(String name)
 	throws RemoteException {
-		RoomModel room = new RoomModel(name);
+		RoomModel room = new RoomModel(name, serverId);
 		room.startConsumerThread();
 		return room;
 	}
@@ -148,4 +148,5 @@ implements RemoteServerModel {
 		input.close();
 		return id;
 	}
+	
 }
