@@ -90,11 +90,11 @@ implements RemoteRoomModel, Runnable {
 					throw new InterruptedException("Interruption detected in service loop");
 				
 				synchronized(this) {
-					if(masterId != -1)
-					{
+					//if(masterId != -1)
+					//{
 						broadcastMessageBatchToClients();
 						processPendingMessageBatch();
-					}
+					//}
 				}
 			
 				consumerThreadSleep();
