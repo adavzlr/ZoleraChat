@@ -15,4 +15,10 @@ extends Remote {
 	
 	public int submit(RemoteClientModel clientRef, ChatMessage msg)
 	throws RemoteException;
+	
+	public void broadcast(ChatMessage[] batch)
+	throws RemoteException;
+	
+	public void share(ChatMessage[] batch)
+	throws RemoteException;
 }

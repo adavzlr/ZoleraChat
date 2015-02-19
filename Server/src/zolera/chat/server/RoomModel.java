@@ -14,6 +14,7 @@ implements RemoteRoomModel, Runnable {
 	private Map<RemoteClientModel, ClientHandle> clients;
 	private int maxCapacity;	
 	
+	private Queue<ChatMessage> pending;
 	private Queue<ChatMessage> broadcast;
 	private ChatLog            chatlog;
 	private Thread             consumerThread;
@@ -26,9 +27,10 @@ implements RemoteRoomModel, Runnable {
 		roomname = name;
 		
 		maxCapacity = config.getMaxRoomCapacity();
-		clients     = new HashMap<RemoteClientModel, ClientHandle>(maxCapacity);
+		clients     = new HashMap<>(maxCapacity);
 		
-		broadcast      = new ArrayDeque<ChatMessage>(config.getInitialBroadcastCapacity());
+		pending        = new ArrayDeque<>(config.getInitialMessageListCapacity());
+		broadcast      = new ArrayDeque<>(config.getInitialMessageListCapacity());
 		chatlog        = new ChatLog(config.getInitialChatLogCapacity());
 		consumerThread = new Thread(this);
 		
@@ -75,6 +77,7 @@ implements RemoteRoomModel, Runnable {
 					throw new InterruptedException("Interruption detected in service loop");
 				
 				synchronized(this) {
+					processPendingMessageBatch();
 					broadcastMessageBatchToClients();
 				}
 			
@@ -98,6 +101,16 @@ implements RemoteRoomModel, Runnable {
 		} while (ellapsedTime < sleepTime);
 	}
 	
+	
+	
+	private synchronized void processPendingMessageBatch() {
+		ChatMessage[] batch = getPendingBatch();
+		if (batch == null)
+			return;
+		
+		addBroadcastBatch(batch);
+	}
+	
 	private synchronized void broadcastMessageBatchToClients() {
 		ChatMessage[] batch = getBroadcastBatch();
 		if (batch == null)
@@ -116,7 +129,7 @@ implements RemoteRoomModel, Runnable {
 				System.out.println("\n" + dce.getMessage());
 				
 				// Remove client when we determine it is unresponsive
-				addBroadcastMessage(new ChatMessage(config.getSystemMessagesUsername(),"User '" + handle.getUsername() + "' left the room"));
+				addPendingMessage(new ChatMessage(config.getSystemMessagesUsername(),"User '" + handle.getUsername() + "' left the room"));
 				iterator.remove();
 			}
 		}
@@ -169,11 +182,32 @@ implements RemoteRoomModel, Runnable {
 		return clients.get(ref);
 	}
 	
-	private synchronized void addBroadcastMessage(ChatMessage msg) {
+	
+	
+	private synchronized void addPendingMessage(ChatMessage msg) {
 		if (msg == null)
 			return;
 		
-		broadcast.add(msg);
+		pending.add(msg);
+	}
+	
+	private synchronized ChatMessage[] getPendingBatch() {
+		if (pending.isEmpty())
+			return null;
+		
+		ChatMessage[] batch = new ChatMessage[pending.size()];
+		for (int m = 0; m < batch.length; m++)
+			batch[m] = pending.remove();
+		
+		return batch;
+	}
+	
+	private synchronized void addBroadcastBatch(ChatMessage[] batch) {
+		if (batch == null || batch.length == 0)
+			return;
+		
+		for (int m = 0; m < batch.length; m++)
+			broadcast.add(batch[m]);
 	}
 	
 	private synchronized ChatMessage[] getBroadcastBatch() {
@@ -209,7 +243,7 @@ implements RemoteRoomModel, Runnable {
 		}
 		
 		// inform users of joining user
-		addBroadcastMessage(new ChatMessage(config.getSystemMessagesUsername(), "User '" + username + "' joined the room"));
+		addPendingMessage(new ChatMessage(config.getSystemMessagesUsername(), "User '" + username + "' joined the room"));
 		
 		return RemoteRoomModel.SUCCESSFUL_JOIN;
 	}
@@ -231,7 +265,7 @@ implements RemoteRoomModel, Runnable {
 		if (!submit_verifyValidity(clientRef, msg))
 			return RemoteRoomModel.VALIDITY_CHECK_FAILED;
 		else {
-			addBroadcastMessage(msg);
+			addPendingMessage(msg);
 			return RemoteRoomModel.MESSAGE_SUBMITTED;
 		}
 	}
@@ -249,5 +283,17 @@ implements RemoteRoomModel, Runnable {
 			return false;
 		
 		return true;
+	}
+
+	@Override
+	public void broadcast(ChatMessage[] batch)
+	throws RemoteException {
+		
+	}
+
+	@Override
+	public synchronized void share(ChatMessage[] batch)
+	throws RemoteException {
+		
 	}
 }

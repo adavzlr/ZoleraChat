@@ -6,6 +6,11 @@
 package zolera.chat.ui;
 
 import java.awt.Color;
+import java.util.HashSet;
+import java.util.Set;
+import javax.swing.AbstractListModel;
+import javax.swing.DefaultListModel;
+import javax.swing.ListModel;
 import javax.swing.text.*;
 import zolera.chat.client.ClientModel;
 import zolera.chat.client.ProcessMessagesDelegate;
@@ -22,6 +27,7 @@ public class ChatView extends javax.swing.JFrame {
     private ServerConfiguration config;
     private ClientModel client;
     private String lastMsgUser;
+    private DefaultListModel users;
 
     /**
      * Creates new form ChatFrame
@@ -36,6 +42,8 @@ public class ChatView extends javax.swing.JFrame {
         config      = ServerConfiguration.getGlobal();
         client      = model;
         lastMsgUser = null;
+        
+        users = new DefaultListModel();
         
         ProcessMessagesDelegate procMsg = new ProcessMessagesDelegate() {
             @Override
@@ -100,6 +108,10 @@ public class ChatView extends javax.swing.JFrame {
                + client.getServerId();
     }
     
+    private ListModel getUsersListModel() {
+        return users;
+    }
+    
     
     
     private void printMessage(String sender, SimpleAttributeSet senderStyle, String text, SimpleAttributeSet textStyle) {
@@ -137,6 +149,8 @@ public class ChatView extends javax.swing.JFrame {
             
             // set printing information and keep track of sender headers
             if (sysmsg) {
+                processSysMsg(msg);
+                
                 sender      = null; // don't print sender
                 lastMsgUser = null; // always print sender header after a sys msg
                 text        = ">>>" + text;
@@ -149,6 +163,20 @@ public class ChatView extends javax.swing.JFrame {
             }
             
             printMessage(sender, senderStyle, text, textStyle);
+        }
+    }
+    
+    private void processSysMsg(ChatMessage msg) {
+        String text = msg.getMessageText();
+        
+        if (text.contains("joined the room")) {
+            String[] split = text.split("'");
+                users.addElement(split[1]);
+        }
+        else if (text.contains("left the room")) {
+            String[] split = text.split("'");
+            if (users.contains(split[1]))
+                users.removeElement(split[1]);
         }
     }
     
@@ -261,11 +289,7 @@ public class ChatView extends javax.swing.JFrame {
 
         scpUsersScroll.setMinimumSize(new java.awt.Dimension(200, 100));
 
-        lstUsers.setModel(new javax.swing.AbstractListModel() {
-            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
-            public int getSize() { return strings.length; }
-            public Object getElementAt(int i) { return strings[i]; }
-        });
+        lstUsers.setModel(getUsersListModel());
         lstUsers.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         lstUsers.setFocusable(false);
         scpUsersScroll.setViewportView(lstUsers);

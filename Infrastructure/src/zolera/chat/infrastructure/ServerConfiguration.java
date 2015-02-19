@@ -25,7 +25,7 @@ public final class ServerConfiguration {
 	private final String   defaultRoomname;
 	private final int      maxRoomCapacity;
 	private final int      initialChatLogCapacity;
-	private final int      initialBroadcastCapacity;
+	private final int      initialMessageListCapacity;
 	private final long     sleepTimeRoomConsumerThreadMillis;
 	private final long     waitReadyTimeoutMillis;
 	private final String   systemMessagesUsername;
@@ -48,7 +48,7 @@ public final class ServerConfiguration {
 			defaultRoomname                   = "Default";
 			maxRoomCapacity                   = 10;
 			initialChatLogCapacity            = 100;
-			initialBroadcastCapacity          = 5 * maxRoomCapacity;
+			initialMessageListCapacity          = 5 * maxRoomCapacity;
 			sleepTimeRoomConsumerThreadMillis = 100;
 			waitReadyTimeoutMillis            = 5_000;
 			systemMessagesUsername            = "ZoleraChatSys";
@@ -99,8 +99,8 @@ public final class ServerConfiguration {
 		return initialChatLogCapacity;
 	}
 	
-	public int getInitialBroadcastCapacity() {
-		return initialBroadcastCapacity;
+	public int getInitialMessageListCapacity() {
+		return initialMessageListCapacity;
 	}
 	
 	public long getSleepTimeRoomConsumerThreadMillis() {
